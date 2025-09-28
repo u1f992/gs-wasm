@@ -4,6 +4,8 @@
   "description": "WASM build variant of ArtifexSoftware/ghostpdl 10.05.1.",
   "main": "dist/index.js",
   "scripts": {
+    "lint": "eslint --fix \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\"",
     "build:wasm": "sh ./build-wasm.sh && cp ghostpdl/bin/gs.js src/gs.js && cp ghostpdl/bin/gs.wasm src/gs.wasm",
     "clean:wasm": "cd ghostpdl && emmake make clean && cd .. && rm src/gs.js src/gs.wasm",
     "build": "tsc && cp src/gs.js dist/gs.js && cp src/gs.wasm dist/gs.wasm",
@@ -11,7 +13,7 @@
     "test": "node --test \"dist/**/*.test.js\""
   },
   "keywords": [],
-  "author": "",
+  "author": "Koutaro Mukai",
   "license": "AGPL-3.0-only",
   "type": "module",
   "devDependencies": {
