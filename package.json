@@ -10,6 +10,7 @@
     "clean:wasm": "cd ghostpdl && emmake make clean && cd .. && rm src/gs.js src/gs.wasm",
     "build": "tsc && cp src/gs.js dist/gs.js && cp src/gs.wasm dist/gs.wasm",
     "clean": "rm -rf dist",
+    "pretest": "npm run build",
     "test": "node --test \"dist/**/*.test.js\""
   },
   "keywords": [],

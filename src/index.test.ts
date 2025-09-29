@@ -59,9 +59,6 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=manuscript.ps ma
 });
 
 await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.png -", async () => {
-  const stdin = fs.readFileSync(
-    path.resolve(__dirname, "../test-asset/manuscript.ps"),
-  );
   const ret = await gs({
     args: [
       "-dNOPAUSE",
@@ -71,11 +68,22 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.p
       "-sOutputFile=manuscript.png",
       "-",
     ],
-    stdin,
+    onStdin: (() => {
+      const stdin = fs.readFileSync(
+        path.resolve(__dirname, "../test-asset/manuscript.ps"),
+      );
+      let stdinIndex = 0;
+      return () => {
+        const byte = stdinIndex < stdin.length ? stdin[stdinIndex++]! : null;
+        if (stdinIndex % 10000 === 0) {
+          console.log(`${stdinIndex}/${stdin.length}`);
+        }
+        return byte;
+      };
+    })(),
     onStdout: writeToStderr,
     onStderr: writeToStderr,
     outputFilePaths: ["manuscript.png"],
-    transfer: [stdin.buffer],
   });
   assert.strictEqual(ret.exitCode, 0);
   assert.ok("manuscript.png" in ret.outputFiles);
@@ -86,7 +94,7 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.p
   );
 });
 
-await test("gs with both async onStdout and onStderr callbacks", async () => {
+await test("gs with async callbacks", async () => {
   const outputChars: number[] = [];
   const errorChars: number[] = [];
   const ret = await gs({
@@ -107,4 +115,41 @@ await test("gs with both async onStdout and onStderr callbacks", async () => {
   assert.strictEqual(ret.exitCode, 0);
   const log = new TextDecoder().decode(new Uint8Array(outputChars));
   assert.strictEqual(log, "10.05.1\n");
+});
+
+await test("async stdin", async () => {
+  const ret = await gs({
+    args: [
+      "-dNOPAUSE",
+      "-dBATCH",
+      "-sDEVICE=png16m",
+      "-r150",
+      "-sOutputFile=manuscript.png",
+      "-",
+    ],
+    onStdin: (() => {
+      const stdin = fs.readFileSync(
+        path.resolve(__dirname, "../test-asset/manuscript.ps"),
+      );
+      let stdinIndex = 0;
+      return async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        const byte = stdinIndex < stdin.length ? stdin[stdinIndex++]! : null;
+        if (stdinIndex % 10000 === 0) {
+          console.log(`${stdinIndex}/${stdin.length}`);
+        }
+        return byte;
+      };
+    })(),
+    onStdout: writeToStderr,
+    onStderr: writeToStderr,
+    outputFilePaths: ["manuscript.png"],
+  });
+  assert.strictEqual(ret.exitCode, 0);
+  assert.ok("manuscript.png" in ret.outputFiles);
+
+  fs.writeFileSync(
+    path.resolve(__dirname, "../test-asset/manuscript.png"),
+    ret.outputFiles["manuscript.png"],
+  );
 });
