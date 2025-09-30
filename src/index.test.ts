@@ -8,25 +8,19 @@ import url from "node:url";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
-const writeToStderr = (charCode: number | null) => {
-  if (charCode !== null) {
-    process.stderr.write(new Uint8Array([charCode]));
-  }
-};
-
 await test("gs --version", async () => {
-  const outputChars: number[] = [];
-  const ret = await gs({
-    args: ["--version"],
-    onStdout: (charCode) => {
-      if (charCode !== null) {
-        outputChars.push(charCode);
-      }
-    },
-  });
-  assert.strictEqual(ret.exitCode, 0);
-  const log = new TextDecoder().decode(new Uint8Array(outputChars));
-  assert.strictEqual(log, "10.05.1\n");
+  const onStdout = test.mock.fn<(_: number | null) => void>();
+  const { exitCode } = await gs({ args: ["--version"], onStdout });
+  assert.strictEqual(exitCode, 0);
+  assert.strictEqual(
+    String.fromCharCode(
+      ...onStdout.mock.calls.map(({ arguments: [arg] }) => {
+        assert.notStrictEqual(arg, null);
+        return arg as number;
+      }),
+    ),
+    "10.05.1\n",
+  );
 });
 
 await test("gs -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=manuscript.ps manuscript.pdf", async () => {
@@ -35,7 +29,7 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=manuscript.ps ma
       path.resolve(__dirname, "../test-asset/manuscript.pdf"),
     ),
   };
-  const ret = await gs({
+  const { exitCode, outputFiles } = await gs({
     args: [
       "-dNOPAUSE",
       "-dBATCH",
@@ -44,22 +38,20 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=manuscript.ps ma
       "manuscript.pdf",
     ],
     inputFiles,
-    onStdout: writeToStderr,
-    onStderr: writeToStderr,
     outputFilePaths: ["manuscript.ps"],
     transfer: Object.values(inputFiles).map((f) => f.buffer),
   });
-  assert.strictEqual(ret.exitCode, 0);
-  assert.ok("manuscript.ps" in ret.outputFiles);
+  assert.strictEqual(exitCode, 0);
+  assert.ok("manuscript.ps" in outputFiles);
 
   fs.writeFileSync(
     path.resolve(__dirname, "../test-asset/manuscript.ps"),
-    ret.outputFiles["manuscript.ps"],
+    outputFiles["manuscript.ps"],
   );
 });
 
 await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.png -", async () => {
-  const ret = await gs({
+  const { exitCode, outputFiles } = await gs({
     args: [
       "-dNOPAUSE",
       "-dBATCH",
@@ -75,46 +67,50 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.p
       let stdinIndex = 0;
       return () => (stdinIndex < stdin.length ? stdin[stdinIndex++]! : null);
     })(),
-    onStdout: writeToStderr,
-    onStderr: writeToStderr,
     outputFilePaths: ["manuscript.png"],
   });
-  assert.strictEqual(ret.exitCode, 0);
-  assert.ok("manuscript.png" in ret.outputFiles);
+  assert.strictEqual(exitCode, 0);
+  assert.ok("manuscript.png" in outputFiles);
 
   fs.writeFileSync(
     path.resolve(__dirname, "../test-asset/manuscript.png"),
-    ret.outputFiles["manuscript.png"],
+    outputFiles["manuscript.png"],
   );
 });
 
 await test("gs with async callbacks", async () => {
-  const outputChars: number[] = [];
-  const errorChars: number[] = [];
-  const ret = await gs({
-    args: ["--version"],
-    onStdout: async (charCode) =>
-      await new Promise((resolve) => {
-        if (charCode !== null) {
-          outputChars.push(charCode);
-        }
-        resolve();
+  const onStdout = test.mock.fn(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (_: number | null) => new Promise<void>((resolve) => resolve()),
+  );
+  const onStderr = test.mock.fn(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (_: number | null) => new Promise<void>((resolve) => resolve()),
+  );
+  const { exitCode } = await gs({ args: ["--version"], onStdout, onStderr });
+  assert.strictEqual(exitCode, 0);
+  assert.strictEqual(
+    String.fromCharCode(
+      ...onStdout.mock.calls.map(({ arguments: [arg] }) => {
+        assert.notStrictEqual(arg, null);
+        return arg as number;
       }),
-    onStderr: async (charCode) =>
-      await new Promise((resolve) => {
-        if (charCode !== null) {
-          errorChars.push(charCode);
-        }
-        resolve();
+    ),
+    "10.05.1\n",
+  );
+  assert.strictEqual(
+    String.fromCharCode(
+      ...onStderr.mock.calls.map(({ arguments: [arg] }) => {
+        assert.notStrictEqual(arg, null);
+        return arg as number;
       }),
-  });
-  assert.strictEqual(ret.exitCode, 0);
-  const log = new TextDecoder().decode(new Uint8Array(outputChars));
-  assert.strictEqual(log, "10.05.1\n");
+    ),
+    "",
+  );
 });
 
-await test("async stdin", async () => {
-  const ret = await gs({
+await test("gs with async stdin", async () => {
+  const { exitCode, outputFiles } = await gs({
     args: [
       "-dNOPAUSE",
       "-dBATCH",
@@ -133,15 +129,13 @@ await test("async stdin", async () => {
           resolve(stdinIndex < stdin.length ? stdin[stdinIndex++]! : null),
         );
     })(),
-    onStdout: writeToStderr,
-    onStderr: writeToStderr,
     outputFilePaths: ["manuscript.png"],
   });
-  assert.strictEqual(ret.exitCode, 0);
-  assert.ok("manuscript.png" in ret.outputFiles);
+  assert.strictEqual(exitCode, 0);
+  assert.ok("manuscript.png" in outputFiles);
 
   fs.writeFileSync(
     path.resolve(__dirname, "../test-asset/manuscript.png"),
-    ret.outputFiles["manuscript.png"],
+    outputFiles["manuscript.png"],
   );
 });
