@@ -73,13 +73,7 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.p
         path.resolve(__dirname, "../test-asset/manuscript.ps"),
       );
       let stdinIndex = 0;
-      return () => {
-        const byte = stdinIndex < stdin.length ? stdin[stdinIndex++]! : null;
-        if (stdinIndex % 10000 === 0) {
-          console.log(`${stdinIndex}/${stdin.length}`);
-        }
-        return byte;
-      };
+      return () => (stdinIndex < stdin.length ? stdin[stdinIndex++]! : null);
     })(),
     onStdout: writeToStderr,
     onStderr: writeToStderr,
@@ -99,18 +93,20 @@ await test("gs with async callbacks", async () => {
   const errorChars: number[] = [];
   const ret = await gs({
     args: ["--version"],
-    onStdout: async (charCode) => {
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      if (charCode !== null) {
-        outputChars.push(charCode);
-      }
-    },
-    onStderr: async (charCode) => {
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      if (charCode !== null) {
-        errorChars.push(charCode);
-      }
-    },
+    onStdout: async (charCode) =>
+      await new Promise((resolve) => {
+        if (charCode !== null) {
+          outputChars.push(charCode);
+        }
+        resolve();
+      }),
+    onStderr: async (charCode) =>
+      await new Promise((resolve) => {
+        if (charCode !== null) {
+          errorChars.push(charCode);
+        }
+        resolve();
+      }),
   });
   assert.strictEqual(ret.exitCode, 0);
   const log = new TextDecoder().decode(new Uint8Array(outputChars));
@@ -132,14 +128,10 @@ await test("async stdin", async () => {
         path.resolve(__dirname, "../test-asset/manuscript.ps"),
       );
       let stdinIndex = 0;
-      return async () => {
-        await new Promise((resolve) => setTimeout(resolve, 1));
-        const byte = stdinIndex < stdin.length ? stdin[stdinIndex++]! : null;
-        if (stdinIndex % 10000 === 0) {
-          console.log(`${stdinIndex}/${stdin.length}`);
-        }
-        return byte;
-      };
+      return async () =>
+        await new Promise((resolve) =>
+          resolve(stdinIndex < stdin.length ? stdin[stdinIndex++]! : null),
+        );
     })(),
     onStdout: writeToStderr,
     onStderr: writeToStderr,

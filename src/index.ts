@@ -5,11 +5,7 @@ import type {
   MessageFromWorker,
   Result,
 } from "./message.js";
-import {
-  STATUS_INPUT_REQUESTED,
-  STATUS_DATA_READY,
-  STATUS_EOF,
-} from "./status.js";
+import { STATUS_DATA_READY, STATUS_EOF } from "./status.js";
 
 export type Options = {
   onStdin: () => number | null | Promise<number | null>;
@@ -74,40 +70,19 @@ export async function gs({
               } satisfies MessageFromMain,
               transfer,
             );
-
-            // Monitor for input requests in a separate thread-like loop
-            checkInterval = setInterval(
-              (() => {
-                // Prevent concurrent execution
-                // This flag is safe in JavaScript's single-threaded environment.
-                // setInterval callbacks are queued and executed sequentially, not concurrently.
-                let isProcessingInput = false;
-                return async () => {
-                  if (isProcessingInput) {
-                    return;
-                  }
-
-                  if (Atomics.load(statusArray, 0) === STATUS_INPUT_REQUESTED) {
-                    isProcessingInput = true;
-                    try {
-                      const byte = await onStdin();
-                      if (byte === null) {
-                        Atomics.store(statusArray, 0, STATUS_EOF);
-                        Atomics.notify(statusArray, 0);
-                      } else {
-                        Atomics.store(dataArray, 0, byte & 0xff);
-                        Atomics.store(statusArray, 0, STATUS_DATA_READY);
-                        Atomics.notify(statusArray, 0);
-                      }
-                    } finally {
-                      isProcessingInput = false;
-                    }
-                  }
-                };
-              })(),
-              1,
-            );
             break;
+
+          case "stdin": {
+            const byte = await onStdin();
+            if (byte === null) {
+              Atomics.store(statusArray, 0, STATUS_EOF);
+            } else {
+              Atomics.store(dataArray, 0, byte & 0xff);
+              Atomics.store(statusArray, 0, STATUS_DATA_READY);
+            }
+            Atomics.notify(statusArray, 0);
+            break;
+          }
 
           case "stdout":
             lastOutputPromise = lastOutputPromise.then(() => onStdout(data));

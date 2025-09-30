@@ -31,7 +31,7 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
                 }
 
                 Atomics.store(statusArray, 0, STATUS_INPUT_REQUESTED);
-                Atomics.notify(statusArray, 0);
+                self.postMessage({ type: "stdin" } as MessageFromWorker);
                 Atomics.wait(statusArray, 0, STATUS_INPUT_REQUESTED);
 
                 const status = Atomics.load(statusArray, 0);
