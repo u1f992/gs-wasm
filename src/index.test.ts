@@ -139,3 +139,120 @@ await test("gs with async stdin", async () => {
     outputFiles["manuscript.png"],
   );
 });
+
+await test("gs aborts immediately when signal is already aborted", async () => {
+  const controller = new AbortController();
+  controller.abort();
+
+  await assert.rejects(
+    gs({
+      args: ["--version"],
+      signal: controller.signal,
+    }),
+    (err: Error) => {
+      assert.strictEqual(err.name, "AbortError");
+      return true;
+    },
+  );
+});
+
+await test("gs aborts during execution", async () => {
+  const controller = new AbortController();
+  const onStdout = test.mock.fn<(_: number | null) => void>();
+
+  setTimeout(() => controller.abort(), 10);
+
+  await assert.rejects(
+    gs({
+      args: [
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-sDEVICE=png16m",
+        "-r150",
+        "-sOutputFile=manuscript.png",
+        "-",
+      ],
+      onStdin: (() => {
+        const stdin = fs.readFileSync(
+          path.resolve(__dirname, "../test-asset/manuscript.ps"),
+        );
+        let stdinIndex = 0;
+        return async () => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return stdinIndex < stdin.length ? stdin[stdinIndex++]! : null;
+        };
+      })(),
+      outputFilePaths: ["manuscript.png"],
+      signal: controller.signal,
+      onStdout,
+    }),
+    (err: Error) => {
+      assert.strictEqual(err.name, "AbortError");
+      return true;
+    },
+  );
+});
+
+await test("gs completes successfully when not aborted", async () => {
+  const controller = new AbortController();
+  const onStdout = test.mock.fn<(_: number | null) => void>();
+
+  const { exitCode } = await gs({
+    args: ["--version"],
+    signal: controller.signal,
+    onStdout,
+  });
+
+  assert.strictEqual(exitCode, 0);
+  assert.strictEqual(
+    String.fromCharCode(
+      ...onStdout.mock.calls.map(({ arguments: [arg] }) => {
+        assert.notStrictEqual(arg, null);
+        return arg as number;
+      }),
+    ),
+    "10.06.0\n",
+  );
+});
+
+await test("gs cleans up resources on abort", async () => {
+  const controller = new AbortController();
+  const onStdinCalled = test.mock.fn();
+  const onStdoutCalled = test.mock.fn();
+
+  const promise = gs({
+    args: [
+      "-dNOPAUSE",
+      "-dBATCH",
+      "-sDEVICE=png16m",
+      "-r150",
+      "-sOutputFile=manuscript.png",
+      "-",
+    ],
+    onStdin: (() => {
+      const stdin = fs.readFileSync(
+        path.resolve(__dirname, "../test-asset/manuscript.ps"),
+      );
+      let stdinIndex = 0;
+      return async () => {
+        onStdinCalled();
+        if (onStdinCalled.mock.calls.length === 100) {
+          controller.abort();
+        }
+        return stdinIndex < stdin.length ? stdin[stdinIndex++]! : null;
+      };
+    })(),
+    onStdout: (charCode) => {
+      onStdoutCalled(charCode);
+    },
+    outputFilePaths: ["manuscript.png"],
+    signal: controller.signal,
+  });
+
+  await assert.rejects(promise, (err: Error) => {
+    assert.strictEqual(err.name, "AbortError");
+    return true;
+  });
+
+  assert.ok(onStdinCalled.mock.calls.length >= 1);
+});

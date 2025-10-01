@@ -12,7 +12,22 @@ export type Options = {
   onStdout: (charCode: number | null) => void | Promise<void>;
   onStderr: (charCode: number | null) => void | Promise<void>;
   transfer: Transferable[];
+  signal: AbortSignal;
 } & Arguments;
+
+class AbortError extends Error {
+  constructor(message = "The operation was aborted") {
+    super(message);
+    this.name = "AbortError";
+  }
+}
+
+class WorkerError extends Error {
+  constructor(e: ErrorEvent) {
+    super(e.message);
+    this.name = "WorkerError";
+  }
+}
 
 export async function gs({
   args,
@@ -22,6 +37,7 @@ export async function gs({
   onStdout,
   onStderr,
   transfer,
+  signal,
 }: Partial<Options>): Promise<Result> {
   args ??= [];
   inputFiles ??= {};
@@ -30,6 +46,10 @@ export async function gs({
   onStdout ??= () => {};
   onStderr ??= () => {};
   transfer ??= [];
+
+  if (signal?.aborted) {
+    return Promise.reject(new AbortError());
+  }
 
   const worker = new Worker(new URL("./worker.js", import.meta.url), {
     type: "module",
@@ -43,20 +63,28 @@ export async function gs({
   const statusArray = new Int32Array(sharedBuffer, 0, 1); // 0 (initial), STATUS_*
   const dataArray = new Int32Array(sharedBuffer, 4, 1); // 0-255
 
-  let checkInterval: ReturnType<typeof setInterval> | null = null;
   let lastOutputPromise: Promise<void> = Promise.resolve();
   let lastErrorPromise: Promise<void> = Promise.resolve();
+  let onAbort: (() => Promise<void>) | null = null;
 
   const cleanup = async () => {
-    if (checkInterval !== null) {
-      clearInterval(checkInterval);
-      checkInterval = null;
-    }
-    await Promise.all([lastOutputPromise, lastErrorPromise]);
     worker.terminate();
+    await Promise.all([lastOutputPromise, lastErrorPromise]);
+    if (onAbort) {
+      signal?.removeEventListener("abort", onAbort);
+      onAbort = null;
+    }
   };
 
   return new Promise<Result>((resolve, reject) => {
+    signal?.addEventListener(
+      "abort",
+      (onAbort = async () => {
+        await cleanup();
+        reject(new AbortError());
+      }),
+    );
+
     worker.addEventListener(
       "message",
       async (e: MessageEvent<MessageFromWorker>) => {
@@ -100,9 +128,9 @@ export async function gs({
       },
     );
 
-    worker.addEventListener("error", async (error) => {
+    worker.addEventListener("error", async (e) => {
       await cleanup();
-      reject(new Error(`Worker error: ${error.message}`));
+      reject(new WorkerError(e));
     });
 
     worker.postMessage({
