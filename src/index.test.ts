@@ -19,7 +19,7 @@ await test("gs --version", async () => {
         return arg as number;
       }),
     ),
-    "10.05.1\n",
+    "10.06.0\n",
   );
 });
 
@@ -96,7 +96,7 @@ await test("gs with async callbacks", async () => {
         return arg as number;
       }),
     ),
-    "10.05.1\n",
+    "10.06.0\n",
   );
   assert.strictEqual(
     String.fromCharCode(
