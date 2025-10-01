@@ -1,0 +1,13 @@
+.devcontainer
+.github
+.vscode
+ghostpdl
+src
+dist/**/*.test.*
+test-asset
+build-wasm.sh
+patch.js
+*.config.js
+tsconfig.json
+*.tgz
+.gitmodules
