@@ -256,3 +256,65 @@ await test("gs cleans up resources on abort", async () => {
 
   assert.ok(onStdinCalled.mock.calls.length >= 1);
 });
+
+await test("gs as interpreter", async () => {
+  const stdinBuffer: (number | null)[] = [];
+  const waitingResolvers: ((value: number | null) => void)[] = [];
+
+  const stdoutBuffer: number[] = [];
+  const stderrBuffer: number[] = [];
+
+  const promise = gs({
+    args: [
+      "-dQUIET",
+      "-dNOPAUSE",
+      "-sstdout=%stderr",
+      "-sDEVICE=png16m",
+      "-sOutputFile=-",
+    ],
+    onStdin: async () =>
+      new Promise((resolve) => {
+        const data = stdinBuffer.shift();
+        if (typeof data !== "undefined") {
+          resolve(data);
+        } else {
+          // Wait for more data to be pushed
+          waitingResolvers.push(resolve);
+        }
+      }),
+    onStdout: (charCode: number | null) => {
+      if (charCode !== null) {
+        stdoutBuffer.push(charCode);
+      }
+    },
+    onStderr: (charCode: number | null) => {
+      if (charCode !== null) {
+        stderrBuffer.push(charCode);
+      }
+    },
+  });
+
+  const psCommands = `100 100 moveto
+    200 200 lineto
+    stroke
+    showpage
+    quit
+`;
+  stdinBuffer.push(...Array.from(psCommands).map((c) => c.charCodeAt(0)));
+  stdinBuffer.push(null); // EOF
+
+  while (waitingResolvers.length > 0 && stdinBuffer.length > 0) {
+    const resolver = waitingResolvers.shift()!;
+    resolver(stdinBuffer.shift()!);
+  }
+
+  const { exitCode } = await promise;
+
+  assert.strictEqual(exitCode, 0);
+
+  const pngData = new Uint8Array(stdoutBuffer);
+  fs.writeFileSync(
+    path.resolve(__dirname, "../test-asset/interpreter-output.png"),
+    pngData,
+  );
+});

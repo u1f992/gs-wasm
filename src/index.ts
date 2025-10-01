@@ -113,11 +113,15 @@ export async function gs({
           }
 
           case "stdout":
-            lastOutputPromise = lastOutputPromise.then(() => onStdout(data));
+            lastOutputPromise = lastOutputPromise.then(() =>
+              onStdout(data === null ? null : data & 0xff),
+            );
             break;
 
           case "stderr":
-            lastErrorPromise = lastErrorPromise.then(() => onStderr(data));
+            lastErrorPromise = lastErrorPromise.then(() =>
+              onStderr(data === null ? null : data & 0xff),
+            );
             break;
 
           case "complete":
