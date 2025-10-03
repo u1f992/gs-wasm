@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "WASM build variant of ArtifexSoftware/ghostpdl 10.06.0.",
   "main": "dist/index.js",
+  "bin": {
+    "gs-wasm": "dist/cli.js"
+  },
   "scripts": {
     "lint": "eslint --fix \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",

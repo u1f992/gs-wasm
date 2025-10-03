@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { gs } from "./index.js";
 
 process.exit(
