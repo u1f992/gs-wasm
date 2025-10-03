@@ -5,7 +5,7 @@ import type {
   MessageFromWorker,
   Result,
 } from "./message.js";
-import { STATUS_DATA_READY, STATUS_EOF } from "./status.js";
+import { STATUS_DATA_READY, STATUS_FLUSH } from "./status.js";
 
 export type Options = {
   onStdin: () => number | null | Promise<number | null>;
@@ -103,7 +103,7 @@ export async function gs({
           case "stdin": {
             const byte = await onStdin();
             if (byte === null) {
-              Atomics.store(statusArray, 0, STATUS_EOF);
+              Atomics.store(statusArray, 0, STATUS_FLUSH);
             } else {
               Atomics.store(dataArray, 0, byte & 0xff);
               Atomics.store(statusArray, 0, STATUS_DATA_READY);

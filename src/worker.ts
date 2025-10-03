@@ -5,7 +5,7 @@ import type { MessageFromMain, MessageFromWorker, Result } from "./message.js";
 import {
   STATUS_INPUT_REQUESTED,
   STATUS_DATA_READY,
-  STATUS_EOF,
+  STATUS_FLUSH,
 } from "./status.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,12 +24,7 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
               const sharedBuffer = data;
               const statusArray = new Int32Array(sharedBuffer, 0, 1);
               const dataArray = new Int32Array(sharedBuffer, 4, 1);
-              let isEOF = false;
               return () => {
-                if (isEOF) {
-                  return null;
-                }
-
                 Atomics.store(statusArray, 0, STATUS_INPUT_REQUESTED);
                 self.postMessage({ type: "stdin" } as MessageFromWorker);
                 Atomics.wait(statusArray, 0, STATUS_INPUT_REQUESTED);
@@ -37,8 +32,8 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
                 const status = Atomics.load(statusArray, 0);
                 if (status === STATUS_DATA_READY) {
                   return Atomics.load(dataArray, 0);
-                } else if (status === STATUS_EOF) {
-                  isEOF = true;
+                } else if (status === STATUS_FLUSH) {
+                  return null;
                 }
                 return null;
               };
