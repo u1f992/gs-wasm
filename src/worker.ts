@@ -7,6 +7,7 @@ import {
   STATUS_DATA_READY,
   STATUS_FLUSH,
 } from "./status.js";
+import upath from "upath";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let moduleInstance: any = null;
@@ -59,7 +60,18 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
     case "start": {
       const { args, inputFiles, outputFilePaths } = data;
       for (const [filePath, content] of Object.entries(inputFiles)) {
+        const dirPath = upath.dirname(filePath);
+        if (dirPath && dirPath !== ".") {
+          moduleInstance.FS.mkdirTree(dirPath);
+        }
         moduleInstance.FS.writeFile(filePath, content);
+      }
+
+      for (const filePath of outputFilePaths) {
+        const dirPath = upath.dirname(filePath);
+        if (dirPath && dirPath !== ".") {
+          moduleInstance.FS.mkdirTree(dirPath);
+        }
       }
 
       const exitCode = moduleInstance.callMain(args) as number;
@@ -67,11 +79,15 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
       const outputFiles: Result["outputFiles"] = {};
       const transferables: Transferable[] = [];
       for (const filePath of outputFilePaths) {
-        const fileData = moduleInstance.FS.readFile(
-          filePath,
-        ) as Uint8Array<ArrayBuffer>;
-        outputFiles[filePath] = fileData;
-        transferables.push(fileData.buffer);
+        try {
+          const fileData = moduleInstance.FS.readFile(
+            filePath,
+          ) as Uint8Array<ArrayBuffer>;
+          outputFiles[filePath] = fileData;
+          transferables.push(fileData.buffer);
+        } catch {
+          // File does not exist, skip
+        }
       }
 
       self.postMessage(
