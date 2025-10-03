@@ -1,4 +1,4 @@
-FROM emscripten/emsdk:4.0.10
+FROM emscripten/emsdk:4.0.15
 
 RUN printf '%s\n' \
   'emscripten ALL=(ALL) NOPASSWD:ALL' \
