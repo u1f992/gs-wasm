@@ -6,10 +6,10 @@
   "scripts": {
     "lint": "eslint --fix \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
-    "build:wasm": "sh ./build-wasm.sh && cp ghostpdl/bin/gs.js src/gs.js && cp ghostpdl/bin/gs.wasm src/gs.wasm",
-    "clean:wasm": "cd ghostpdl && emmake make clean && cd .. && rm src/gs.js src/gs.wasm",
-    "build": "tsc && cp src/gs.js dist/gs.js && cp src/gs.wasm dist/gs.wasm",
-    "clean": "rm -rf dist",
+    "build:wasm": "sh ./build-wasm.sh && shx cp ghostpdl/bin/gs.js src/gs.js && shx cp ghostpdl/bin/gs.wasm src/gs.wasm",
+    "clean:wasm": "cd ghostpdl && emmake make clean && cd .. && shx rm src/gs.js src/gs.wasm",
+    "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm",
+    "clean": "shx rm -rf dist",
     "pretest": "npm run build",
     "test": "node --test \"dist/**/*.test.js\""
   },
@@ -23,6 +23,7 @@
     "eslint": "^9.36.0",
     "globals": "^16.4.0",
     "prettier": "^3.6.2",
+    "shx": "^0.4.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.1"
   },
