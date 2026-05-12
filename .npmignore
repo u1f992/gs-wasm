@@ -2,11 +2,10 @@
 .github
 .vscode
 ghostpdl
+scripts
 src
 dist/**/*.test.*
 test-asset
-build-wasm.sh
-patch.js
 *.config.js
 tsconfig.json
 *.tgz
