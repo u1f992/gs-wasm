@@ -7,9 +7,14 @@ node patch.js
 cd ghostpdl
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct HEAD)
 NOCONFIGURE=1 ./autogen.sh
+# -Wno-error=incompatible-pointer-types keeps the build compatible with
+# Ghostscript's upstream build, where this diagnostic is a warning. Clang
+# promoted it to a default error in LLVM commit
+# b24769855d97697de08e2296a548c033f193caf4 (PR #157364, 2025-09-15, first
+# released in LLVM 22.1.0), and emsdk 4.0.15 ships a clang past that point.
 emconfigure ./configure \
   CCAUX=gcc \
-  CFLAGS='-g' \
+  CFLAGS='-g -Wno-error=incompatible-pointer-types' \
   LDFLAGS='-g' \
   --host=wasm32-unknown-emscripten \
   --with-arch_h=arch/wasm32-unknown-emscripten.h
