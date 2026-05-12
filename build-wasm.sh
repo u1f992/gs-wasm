@@ -5,6 +5,7 @@ export LANG=C.UTF-8
 node patch.js
 
 cd ghostpdl
+export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct HEAD)
 NOCONFIGURE=1 ./autogen.sh
 emconfigure ./configure \
   CCAUX=gcc \
