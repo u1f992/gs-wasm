@@ -1,10 +1,3 @@
-FROM emscripten/emsdk:4.0.15
-
-RUN printf '%s\n' \
-  'emscripten ALL=(ALL) NOPASSWD:ALL' \
-  'Defaults:emscripten !secure_path' \
-  'Defaults:emscripten env_keep += "PATH"' \
-  > /etc/sudoers.d/emscripten && \
-  chmod 0440 /etc/sudoers.d/emscripten
+FROM emscripten/emsdk:5.0.7
 
 RUN apt-get update && apt-get install --yes autoconf
