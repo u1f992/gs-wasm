@@ -1,7 +1,17 @@
 {
+  "//": {
+    "$.repository": [
+      "> To publish from GitHub, your package's `repository.url` field in `package.json` must exactly match your GitHub repository.",
+      "https://github.com/npm/documentation/blob/211bf9524e30b0321f42c7a4958cc014378c3a4c/content/packages-and-modules/securing-your-code/trusted-publishers.mdx?plain=1#L337"
+    ]
+  },
   "name": "@u1f992/gs-wasm",
   "version": "0.2.1",
   "description": "WASM build variant of ArtifexSoftware/ghostpdl 10.07.0.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/u1f992/gs-wasm.git"
+  },
   "main": "dist/index.js",
   "bin": {
     "gs-wasm": "dist/cli.js"
