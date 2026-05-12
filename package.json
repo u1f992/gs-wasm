@@ -9,8 +9,8 @@
   "scripts": {
     "lint": "eslint --fix \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
-    "build:wasm": "sh ./build-wasm.sh && shx cp ghostpdl/bin/gs.js src/gs.js && shx cp ghostpdl/bin/gs.wasm src/gs.wasm",
-    "clean:wasm": "cd ghostpdl && emmake make clean && cd .. && shx rm src/gs.js src/gs.wasm",
+    "build:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:5.0.7 bash scripts/build.sh && shx cp ghostpdl/bin/gs.js src/gs.js && shx cp ghostpdl/bin/gs.wasm src/gs.wasm",
+    "clean:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:5.0.7 sh -c \"cd ghostpdl && emmake make clean\" && shx rm src/gs.js src/gs.wasm",
     "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm",
     "clean": "shx rm -rf dist",
     "pretest": "npm run build",
