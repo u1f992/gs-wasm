@@ -6,7 +6,7 @@ Wasm binding of the [Ghostscript Interpreter API](https://github.com/ArtifexSoft
 
 See [src/cli.ts](src/cli.ts) for a usage example.
 
-A CLI `gs-wasm` is also available. It takes the same arguments as `gs` and reads and writes files in the host filesystem.
+A CLI `gs-wasm` is also available. It takes the same arguments as `gs`.
 
 ```bash
 $ npx --yes @u1f992/gs-wasm --version
