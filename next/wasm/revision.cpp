@@ -5,31 +5,31 @@
 
 namespace gsapi {
 
-namespace Revision {
-auto getProduct(const gsapi_revision_t &r) -> std::string { return r.product; }
-auto setProduct(gsapi_revision_t &, std::string) -> void {}
-auto getCopyright(const gsapi_revision_t &r) -> std::string { return r.copyright; }
-auto setCopyright(gsapi_revision_t &, std::string) -> void {}
-} // namespace Revision
+struct Revision {
+  std::string product;
+  std::string copyright;
+  long revision;
+  long revisiondate;
+};
 
-auto revision() -> gsapi_revision_t {
+auto revision() -> Revision {
   ensureNotSuspended();
   gsapi_revision_t r{};
   int ret = gsapi_revision(&r, sizeof(r));
   if (ret != 0) {
     throwReturned("gsapi_revision", ret);
   }
-  return r;
+  return {r.product, r.copyright, r.revision, r.revisiondate};
 }
 
 } // namespace gsapi
 
 EMSCRIPTEN_BINDINGS(revision) {
-  emscripten::value_object<gsapi_revision_t>("Revision")
-      .field("product", &gsapi::Revision::getProduct, &gsapi::Revision::setProduct)
-      .field("copyright", &gsapi::Revision::getCopyright, &gsapi::Revision::setCopyright)
-      .field("revision", &gsapi_revision_t::revision)
-      .field("revisiondate", &gsapi_revision_t::revisiondate);
+  emscripten::value_object<gsapi::Revision>("Revision")
+      .field("product", &gsapi::Revision::product)
+      .field("copyright", &gsapi::Revision::copyright)
+      .field("revision", &gsapi::Revision::revision)
+      .field("revisiondate", &gsapi::Revision::revisiondate);
 
   emscripten::function("revision", &gsapi::revision);
 }
