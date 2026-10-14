@@ -21,22 +21,14 @@ for (let i = 0; i < fileArgs.length; i += 2) {
     throw new Error(`Invalid file argument at position ${i}`);
   }
 
-  if (
-    flag !== "-i" &&
-    flag !== "--input" &&
-    flag !== "-o" &&
-    flag !== "--output"
-  ) {
-    throw new Error(
-      `Invalid flag "${flag}". Must be -i, --input, -o, or --output`,
-    );
+  if (flag !== "-i" && flag !== "--input" && flag !== "-o" && flag !== "--output") {
+    throw new Error(`Invalid flag "${flag}". Must be -i, --input, -o, or --output`);
   }
 
   if (flag === "-i" || flag === "--input") {
     // input: actualPath:vmPath
     const colonIndex = fileSpec.lastIndexOf(":");
-    const actualPath =
-      colonIndex === -1 ? fileSpec : fileSpec.slice(0, colonIndex);
+    const actualPath = colonIndex === -1 ? fileSpec : fileSpec.slice(0, colonIndex);
     const vmPath =
       colonIndex === -1
         ? upath.normalize(upath.relative(cwd, upath.resolve(cwd, fileSpec)))
@@ -48,9 +40,7 @@ for (let i = 0; i < fileArgs.length; i += 2) {
     const colonIndex = fileSpec.lastIndexOf(":");
     const vmPath = colonIndex === -1 ? fileSpec : fileSpec.slice(0, colonIndex);
     const actualPath =
-      colonIndex === -1
-        ? upath.resolve(cwd, fileSpec)
-        : fileSpec.slice(colonIndex + 1);
+      colonIndex === -1 ? upath.resolve(cwd, fileSpec) : fileSpec.slice(colonIndex + 1);
 
     outputFilePaths.push(vmPath);
     outputFileMapping[vmPath] = actualPath;

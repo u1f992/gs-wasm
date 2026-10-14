@@ -17,8 +17,8 @@
     "gs-wasm": "dist/cli.js"
   },
   "scripts": {
-    "lint": "eslint --fix \"src/**/*.ts\"",
-    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "tsc --project tsconfig.tools.json && oxlint --fix src",
+    "format": "tsc --project tsconfig.tools.json && oxfmt src",
     "build:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:5.0.7 bash scripts/build.sh && shx cp ghostpdl/bin/gs.js src/gs.js && shx cp ghostpdl/bin/gs.wasm src/gs.wasm",
     "clean:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:5.0.7 sh -c \"cd ghostpdl && emmake make clean\" && shx rm src/gs.js src/gs.wasm",
     "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm",
@@ -31,14 +31,12 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^22.19.19",
-    "eslint": "^10.3.0",
-    "globals": "^17.6.0",
-    "prettier": "^3.8.3",
+    "@types/node": "^22.20.5",
+    "oxfmt": "^0.73.0",
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
     "shx": "^0.4.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.3"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "upath": "^3.0.7",

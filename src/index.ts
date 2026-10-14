@@ -1,10 +1,5 @@
 import Worker from "web-worker";
-import type {
-  Arguments,
-  MessageFromMain,
-  MessageFromWorker,
-  Result,
-} from "./message.js";
+import type { Arguments, MessageFromMain, MessageFromWorker, Result } from "./message.js";
 import { STATUS_DATA_READY, STATUS_FLUSH } from "./status.js";
 
 export type Options = {
@@ -85,52 +80,49 @@ export async function gs({
       }),
     );
 
-    worker.addEventListener(
-      "message",
-      async (e: MessageEvent<MessageFromWorker>) => {
-        const { type, data } = e.data;
-        switch (type) {
-          case "ready":
-            worker.postMessage(
-              {
-                type: "start",
-                data: { args, inputFiles, outputFilePaths },
-              } satisfies MessageFromMain,
-              transfer,
-            );
-            break;
+    worker.addEventListener("message", async (e: MessageEvent<MessageFromWorker>) => {
+      const { type, data } = e.data;
+      switch (type) {
+        case "ready":
+          worker.postMessage(
+            {
+              type: "start",
+              data: { args, inputFiles, outputFilePaths },
+            } satisfies MessageFromMain,
+            transfer,
+          );
+          break;
 
-          case "stdin": {
-            const byte = await onStdin();
-            if (byte === null) {
-              Atomics.store(statusArray, 0, STATUS_FLUSH);
-            } else {
-              Atomics.store(dataArray, 0, byte & 0xff);
-              Atomics.store(statusArray, 0, STATUS_DATA_READY);
-            }
-            Atomics.notify(statusArray, 0);
-            break;
+        case "stdin": {
+          const byte = await onStdin();
+          if (byte === null) {
+            Atomics.store(statusArray, 0, STATUS_FLUSH);
+          } else {
+            Atomics.store(dataArray, 0, byte & 0xff);
+            Atomics.store(statusArray, 0, STATUS_DATA_READY);
           }
-
-          case "stdout":
-            lastOutputPromise = lastOutputPromise.then(() =>
-              onStdout(data === null ? null : data & 0xff),
-            );
-            break;
-
-          case "stderr":
-            lastErrorPromise = lastErrorPromise.then(() =>
-              onStderr(data === null ? null : data & 0xff),
-            );
-            break;
-
-          case "complete":
-            await cleanup();
-            resolve(data);
-            break;
+          Atomics.notify(statusArray, 0);
+          break;
         }
-      },
-    );
+
+        case "stdout":
+          lastOutputPromise = lastOutputPromise.then(() =>
+            onStdout(data === null ? null : data & 0xff),
+          );
+          break;
+
+        case "stderr":
+          lastErrorPromise = lastErrorPromise.then(() =>
+            onStderr(data === null ? null : data & 0xff),
+          );
+          break;
+
+        case "complete":
+          await cleanup();
+          resolve(data);
+          break;
+      }
+    });
 
     worker.addEventListener("error", async (e) => {
       await cleanup();

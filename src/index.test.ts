@@ -25,9 +25,7 @@ await test("gs --version", async () => {
 
 await test("gs -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=manuscript.ps manuscript.pdf", async () => {
   const inputFiles = {
-    "manuscript.pdf": fs.readFileSync(
-      path.resolve(__dirname, "../test-asset/manuscript.pdf"),
-    ),
+    "manuscript.pdf": fs.readFileSync(path.resolve(__dirname, "../test-asset/manuscript.pdf")),
   };
   const { exitCode, outputFiles } = await gs({
     args: [
@@ -52,18 +50,9 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=manuscript.ps ma
 
 await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.png -", async () => {
   const { exitCode, outputFiles } = await gs({
-    args: [
-      "-dNOPAUSE",
-      "-dBATCH",
-      "-sDEVICE=png16m",
-      "-r150",
-      "-sOutputFile=manuscript.png",
-      "-",
-    ],
+    args: ["-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r150", "-sOutputFile=manuscript.png", "-"],
     onStdin: (() => {
-      const stdin = fs.readFileSync(
-        path.resolve(__dirname, "../test-asset/manuscript.ps"),
-      );
+      const stdin = fs.readFileSync(path.resolve(__dirname, "../test-asset/manuscript.ps"));
       let stdinIndex = 0;
       return () => (stdinIndex < stdin.length ? stdin[stdinIndex++]! : null);
     })(),
@@ -79,13 +68,11 @@ await test("gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=manuscript.p
 });
 
 await test("gs with async callbacks", async () => {
-  const onStdout = test.mock.fn(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    (_: number | null) => new Promise<void>((resolve) => resolve()),
+  const onStdout = test.mock.fn<(charCode: number | null) => Promise<void>>(() =>
+    Promise.resolve(),
   );
-  const onStderr = test.mock.fn(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    (_: number | null) => new Promise<void>((resolve) => resolve()),
+  const onStderr = test.mock.fn<(charCode: number | null) => Promise<void>>(() =>
+    Promise.resolve(),
   );
   const { exitCode } = await gs({ args: ["--version"], onStdout, onStderr });
   assert.strictEqual(exitCode, 0);
@@ -111,18 +98,9 @@ await test("gs with async callbacks", async () => {
 
 await test("gs with async stdin", async () => {
   const { exitCode, outputFiles } = await gs({
-    args: [
-      "-dNOPAUSE",
-      "-dBATCH",
-      "-sDEVICE=png16m",
-      "-r150",
-      "-sOutputFile=manuscript.png",
-      "-",
-    ],
+    args: ["-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r150", "-sOutputFile=manuscript.png", "-"],
     onStdin: (() => {
-      const stdin = fs.readFileSync(
-        path.resolve(__dirname, "../test-asset/manuscript.ps"),
-      );
+      const stdin = fs.readFileSync(path.resolve(__dirname, "../test-asset/manuscript.ps"));
       let stdinIndex = 0;
       return async () =>
         await new Promise((resolve) =>
@@ -173,9 +151,7 @@ await test("gs aborts during execution", async () => {
         "-",
       ],
       onStdin: (() => {
-        const stdin = fs.readFileSync(
-          path.resolve(__dirname, "../test-asset/manuscript.ps"),
-        );
+        const stdin = fs.readFileSync(path.resolve(__dirname, "../test-asset/manuscript.ps"));
         let stdinIndex = 0;
         return async () => {
           await new Promise((resolve) => setTimeout(resolve, 50));
@@ -221,18 +197,9 @@ await test("gs cleans up resources on abort", async () => {
   const onStdoutCalled = test.mock.fn();
 
   const promise = gs({
-    args: [
-      "-dNOPAUSE",
-      "-dBATCH",
-      "-sDEVICE=png16m",
-      "-r150",
-      "-sOutputFile=manuscript.png",
-      "-",
-    ],
+    args: ["-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r150", "-sOutputFile=manuscript.png", "-"],
     onStdin: (() => {
-      const stdin = fs.readFileSync(
-        path.resolve(__dirname, "../test-asset/manuscript.ps"),
-      );
+      const stdin = fs.readFileSync(path.resolve(__dirname, "../test-asset/manuscript.ps"));
       let stdinIndex = 0;
       return async () => {
         onStdinCalled();
@@ -265,13 +232,7 @@ await test("gs as interpreter", async () => {
   const stderrBuffer: number[] = [];
 
   const promise = gs({
-    args: [
-      "-dQUIET",
-      "-dNOPAUSE",
-      "-sstdout=%stderr",
-      "-sDEVICE=png16m",
-      "-sOutputFile=-",
-    ],
+    args: ["-dQUIET", "-dNOPAUSE", "-sstdout=%stderr", "-sDEVICE=png16m", "-sOutputFile=-"],
     onStdin: async () =>
       new Promise((resolve) => {
         const data = stdinBuffer.shift();
@@ -313,8 +274,5 @@ await test("gs as interpreter", async () => {
   assert.strictEqual(exitCode, 0);
 
   const pngData = new Uint8Array(stdoutBuffer);
-  fs.writeFileSync(
-    path.resolve(__dirname, "../test-asset/interpreter-output.png"),
-    pngData,
-  );
+  fs.writeFileSync(path.resolve(__dirname, "../test-asset/interpreter-output.png"), pngData);
 });

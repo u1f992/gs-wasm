@@ -1,15 +1,9 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import Module from "./gs.js";
 import type { MessageFromMain, MessageFromWorker, Result } from "./message.js";
-import {
-  STATUS_INPUT_REQUESTED,
-  STATUS_DATA_READY,
-  STATUS_FLUSH,
-} from "./status.js";
+import { STATUS_INPUT_REQUESTED, STATUS_DATA_READY, STATUS_FLUSH } from "./status.js";
 import upath from "upath";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let moduleInstance: any = null;
 
 addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
@@ -17,7 +11,6 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
   switch (type) {
     case "init":
       moduleInstance = await Module({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         preRun(mod: any) {
           // https://emscripten.org/docs/api_reference/Filesystem-API.html#FS.init
           mod.FS.init(
@@ -80,9 +73,7 @@ addEventListener("message", async (e: MessageEvent<MessageFromMain>) => {
       const transferables: Transferable[] = [];
       for (const filePath of outputFilePaths) {
         try {
-          const fileData = moduleInstance.FS.readFile(
-            filePath,
-          ) as Uint8Array<ArrayBuffer>;
+          const fileData = moduleInstance.FS.readFile(filePath) as Uint8Array<ArrayBuffer>;
           outputFiles[filePath] = fileData;
           transferables.push(fileData.buffer);
         } catch {

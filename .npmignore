@@ -6,7 +6,7 @@ scripts
 src
 dist/**/*.test.*
 test-asset
-*.config.js
-tsconfig.json
+*.config.ts
+tsconfig*.json
 *.tgz
 .gitmodules
