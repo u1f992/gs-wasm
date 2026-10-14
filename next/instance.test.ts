@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
 
-import createModule from "./index.ts";
+import createModule from "./gs.js";
 
 await test("constructor and delete", async () => {
   const gs = await createModule();
@@ -179,4 +179,117 @@ await test("initWithArgs throws on an unknown device", async () => {
   } finally {
     instance.delete();
   }
+});
+
+const interpreterArgs = ["gs", "-dQUIET", "-dNOPAUSE", "-sDEVICE=nullpage"];
+
+await test("runString", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const stdout: number[] = [];
+  try {
+    instance.setStdio(
+      null,
+      (buf: Uint8Array) => {
+        stdout.push(...buf);
+        return buf.length;
+      },
+      null,
+    );
+    assert.strictEqual(await instance.initWithArgs(interpreterArgs), 0);
+    assert.deepStrictEqual(await instance.runString("(hi) print flush", -1), {
+      code: 0,
+      exitCode: 0,
+    });
+    const { code } = await instance.runString("1 0 div", -1);
+    assert.ok(code < 0 && code > gs.gs_error_Fatal, `code: ${code}`);
+    assert.deepStrictEqual(await instance.runString("quit", -1), {
+      code: gs.gs_error_Quit,
+      exitCode: 0,
+    });
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+  assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "hi");
+});
+
+await test("runStringBegin, runStringContinue and runStringEnd", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const stdout: number[] = [];
+  try {
+    instance.setStdio(
+      null,
+      (buf: Uint8Array) => {
+        stdout.push(...buf);
+        return buf.length;
+      },
+      null,
+    );
+    assert.strictEqual(await instance.initWithArgs(interpreterArgs), 0);
+    assert.deepStrictEqual(await instance.runStringBegin(-1), { code: 0, exitCode: 0 });
+    assert.deepStrictEqual(await instance.runStringContinue("(a) pri", -1), {
+      code: gs.gs_error_NeedInput,
+      exitCode: 0,
+    });
+    assert.deepStrictEqual(await instance.runStringContinue("nt flush\n", -1), {
+      code: gs.gs_error_NeedInput,
+      exitCode: 0,
+    });
+    assert.deepStrictEqual(await instance.runStringEnd(-1), { code: 0, exitCode: 0 });
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+  assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "a");
+});
+
+await test("runStringWithLength accepts bytes", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const stdout: number[] = [];
+  try {
+    instance.setStdio(
+      null,
+      (buf: Uint8Array) => {
+        stdout.push(...buf);
+        return buf.length;
+      },
+      null,
+    );
+    assert.strictEqual(await instance.initWithArgs(interpreterArgs), 0);
+    const program = new TextEncoder().encode("(b) print flush");
+    assert.deepStrictEqual(await instance.runStringWithLength(program, -1), {
+      code: 0,
+      exitCode: 0,
+    });
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+  assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "b");
+});
+
+await test("runFile", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const stdout: number[] = [];
+  try {
+    gs.FS.writeFile("/program.ps", "(c) print flush\n");
+    instance.setStdio(
+      null,
+      (buf: Uint8Array) => {
+        stdout.push(...buf);
+        return buf.length;
+      },
+      null,
+    );
+    assert.strictEqual(await instance.initWithArgs(interpreterArgs), 0);
+    assert.deepStrictEqual(await instance.runFile("/program.ps", -1), { code: 0, exitCode: 0 });
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+  assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "c");
 });

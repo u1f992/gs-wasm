@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
 
-import createModule from "./index.ts";
+import createModule from "./gs.js";
 
 await test("revision", async () => {
   const gs = await createModule();

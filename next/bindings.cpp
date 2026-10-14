@@ -5,6 +5,11 @@
 #include <string>
 #include <vector>
 
+EMSCRIPTEN_DECLARE_VAL_TYPE(ArgList);
+EMSCRIPTEN_DECLARE_VAL_TYPE(StdioCallback);
+EMSCRIPTEN_DECLARE_VAL_TYPE(AwaitableInt);
+EMSCRIPTEN_DECLARE_VAL_TYPE(AwaitableRunResult);
+
 namespace gsapi {
 
 auto throwReturned(const char *name, int ret) -> void {
@@ -35,6 +40,11 @@ auto revision() -> gsapi_revision_t {
   }
   return r;
 }
+
+struct RunResult {
+  int code;
+  int exitCode;
+};
 
 class Instance {
   void *instance = nullptr;
@@ -76,8 +86,7 @@ public:
     return inst;
   }
 
-  auto setStdio(emscripten::val stdinFn, emscripten::val stdoutFn, emscripten::val stderrFn)
-      -> int {
+  auto setStdio(StdioCallback stdinFn, StdioCallback stdoutFn, StdioCallback stderrFn) -> int {
     this->stdinFn = stdinFn;
     this->stdoutFn = stdoutFn;
     this->stderrFn = stderrFn;
@@ -90,7 +99,7 @@ public:
     return ret;
   }
 
-  auto initWithArgs(const emscripten::val &argv) -> int {
+  auto initWithArgs(const ArgList &argv) -> AwaitableInt {
     std::vector<std::string> args = emscripten::vecFromJSArray<std::string>(argv);
     std::vector<char *> argvPointers;
     for (auto &arg : args) {
@@ -100,22 +109,67 @@ public:
     if (ret < 0 && ret != gs_error_Quit && ret != gs_error_Info) {
       throwReturned("gsapi_init_with_args", ret);
     }
-    return ret;
+    return AwaitableInt(emscripten::val(ret));
   }
 
-  auto exit() -> int {
+  auto runStringBegin(int userErrors) -> AwaitableRunResult {
+    RunResult r{};
+    r.code = gsapi_run_string_begin(instance, userErrors, &r.exitCode);
+    return AwaitableRunResult(emscripten::val(r));
+  }
+
+  auto runStringContinue(const std::string &str, int userErrors) -> AwaitableRunResult {
+    RunResult r{};
+    r.code = gsapi_run_string_continue(instance, str.data(), str.size(), userErrors, &r.exitCode);
+    return AwaitableRunResult(emscripten::val(r));
+  }
+
+  auto runStringEnd(int userErrors) -> AwaitableRunResult {
+    RunResult r{};
+    r.code = gsapi_run_string_end(instance, userErrors, &r.exitCode);
+    return AwaitableRunResult(emscripten::val(r));
+  }
+
+  auto runStringWithLength(const std::string &str, int userErrors) -> AwaitableRunResult {
+    RunResult r{};
+    r.code =
+        gsapi_run_string_with_length(instance, str.data(), str.size(), userErrors, &r.exitCode);
+    return AwaitableRunResult(emscripten::val(r));
+  }
+
+  auto runString(const std::string &str, int userErrors) -> AwaitableRunResult {
+    RunResult r{};
+    r.code = gsapi_run_string(instance, str.c_str(), userErrors, &r.exitCode);
+    return AwaitableRunResult(emscripten::val(r));
+  }
+
+  auto runFile(const std::string &fileName, int userErrors) -> AwaitableRunResult {
+    RunResult r{};
+    r.code = gsapi_run_file(instance, fileName.c_str(), userErrors, &r.exitCode);
+    return AwaitableRunResult(emscripten::val(r));
+  }
+
+  auto exit() -> AwaitableInt {
     int ret = gsapi_exit(instance);
     if (ret != 0) {
       throwReturned("gsapi_exit", ret);
     }
-    return ret;
+    return AwaitableInt(emscripten::val(ret));
   }
 };
 
 } // namespace gsapi
 
 EMSCRIPTEN_BINDINGS(gs) {
+  emscripten::register_type<ArgList>("string[]");
+  emscripten::register_type<StdioCallback>(
+      "((buf: Uint8Array) => number | Promise<number>) | null");
+  emscripten::register_type<AwaitableInt>("number | Promise<number>");
+  emscripten::register_type<AwaitableRunResult>("RunResult | Promise<RunResult>");
+
+  emscripten::constant("gs_error_Fatal", static_cast<int>(gs_error_Fatal));
   emscripten::constant("gs_error_Quit", static_cast<int>(gs_error_Quit));
+  emscripten::constant("gs_error_NeedInput", static_cast<int>(gs_error_NeedInput));
   emscripten::constant("gs_error_Info", static_cast<int>(gs_error_Info));
 
   emscripten::value_object<gsapi_revision_t>("Revision")
@@ -126,9 +180,19 @@ EMSCRIPTEN_BINDINGS(gs) {
 
   emscripten::function("revision", &gsapi::revision);
 
+  emscripten::value_object<gsapi::RunResult>("RunResult")
+      .field("code", &gsapi::RunResult::code)
+      .field("exitCode", &gsapi::RunResult::exitCode);
+
   emscripten::class_<gsapi::Instance>("Instance")
       .constructor(&gsapi::Instance::create, emscripten::allow_raw_pointers())
       .function("setStdio", &gsapi::Instance::setStdio)
       .function("initWithArgs", &gsapi::Instance::initWithArgs)
+      .function("runStringBegin", &gsapi::Instance::runStringBegin)
+      .function("runStringContinue", &gsapi::Instance::runStringContinue)
+      .function("runStringEnd", &gsapi::Instance::runStringEnd)
+      .function("runStringWithLength", &gsapi::Instance::runStringWithLength)
+      .function("runString", &gsapi::Instance::runString)
+      .function("runFile", &gsapi::Instance::runFile)
       .function("exit", &gsapi::Instance::exit);
 }

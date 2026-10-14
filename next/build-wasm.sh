@@ -33,6 +33,7 @@ em++ -g --profiling-funcs \
   -s ASYNCIFY_STACK_SIZE=1048576 \
   -s MODULARIZE=1 \
   -s EXPORT_ES6=1 \
+  -s EXPORTED_RUNTIME_METHODS=FS \
   --emit-tsd gs.d.ts \
   -o next/gs.js \
   next/bindings.cpp ghostpdl/bin/gs.a
