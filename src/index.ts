@@ -1,6 +1,6 @@
 import Worker from "web-worker";
-import type { Arguments, MessageFromMain, MessageFromWorker, Result } from "./message.js";
-import { STATUS_DATA_READY, STATUS_FLUSH } from "./status.js";
+import type { Arguments, MessageFromMain, MessageFromWorker, Result } from "./message.ts";
+import { STATUS_DATA_READY, STATUS_FLUSH } from "./status.ts";
 
 export type Options = {
   onStdin: () => number | null | Promise<number | null>;
@@ -22,6 +22,11 @@ class WorkerError extends Error {
     super(e.message);
     this.name = "WorkerError";
   }
+}
+
+function workerUrl(): URL {
+  const file = import.meta.url.endsWith(".ts") ? "./worker.ts" : "./worker.js";
+  return new URL(file, import.meta.url);
 }
 
 export async function gs({
@@ -46,9 +51,7 @@ export async function gs({
     return Promise.reject(new AbortError());
   }
 
-  const worker = new Worker(new URL("./worker.js", import.meta.url), {
-    type: "module",
-  });
+  const worker = new Worker(workerUrl(), { type: "module" });
   // Layout: [status:int32, data:int32] = 8 bytes total
   // We must use Int32Array (not Uint8Array) because Atomics.wait() and Atomics.notify()
   // only work with Int32Array or BigInt64Array

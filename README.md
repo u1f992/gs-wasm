@@ -4,7 +4,7 @@ WASM build variant of [ArtifexSoftware/ghostpdl 10.08.0](https://github.com/Arti
 
 ## Usage
 
-See [src/index.test.ts](src/index.test.ts) for usage examples.
+See [tests/index.test.ts](tests/index.test.ts) for usage examples.
 
 A CLI `gs-wasm` is also available.
 

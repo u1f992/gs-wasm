@@ -4,8 +4,7 @@
 ghostpdl
 scripts
 src
-dist/**/*.test.*
-test-asset
+tests
 *.config.ts
 tsconfig*.json
 *.tgz

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { gs } from "./index.js";
+import { gs } from "./index.ts";
 import fs from "node:fs";
 import upath from "upath";
 

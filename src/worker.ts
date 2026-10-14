@@ -1,7 +1,7 @@
 // @ts-ignore
 import Module from "./gs.js";
-import type { MessageFromMain, MessageFromWorker, Result } from "./message.js";
-import { STATUS_INPUT_REQUESTED, STATUS_DATA_READY, STATUS_FLUSH } from "./status.js";
+import type { MessageFromMain, MessageFromWorker, Result } from "./message.ts";
+import { STATUS_INPUT_REQUESTED, STATUS_DATA_READY, STATUS_FLUSH } from "./status.ts";
 import upath from "upath";
 
 let moduleInstance: any = null;

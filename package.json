@@ -17,14 +17,13 @@
     "gs-wasm": "dist/cli.js"
   },
   "scripts": {
-    "lint": "tsc --project tsconfig.tools.json && oxlint --fix src",
-    "format": "tsc --project tsconfig.tools.json && oxfmt src",
+    "lint": "tsc --project tsconfig.tools.json && oxlint --fix src tests",
+    "format": "tsc --project tsconfig.tools.json && oxfmt src tests",
     "build:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:5.0.7 bash scripts/build.sh && shx cp ghostpdl/bin/gs.js src/gs.js && shx cp ghostpdl/bin/gs.wasm src/gs.wasm",
     "clean:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:5.0.7 sh -c \"cd ghostpdl && emmake make clean\" && shx rm src/gs.js src/gs.wasm",
     "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm",
     "clean": "shx rm -rf dist",
-    "pretest": "npm run build",
-    "test": "node --test \"dist/**/*.test.js\""
+    "test": "tsc --project tests && node --test \"tests/**/*.test.ts\""
   },
   "keywords": [],
   "author": "Koutaro Mukai",
