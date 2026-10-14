@@ -3,14 +3,14 @@ import test from "node:test";
 
 import createModule from "./gs.js";
 
-await test("newInstance", async () => {
+await test("Instance", async () => {
   const gs = await createModule();
 
-  const instance = gs.newInstance();
+  const instance = new gs.Instance();
   assert.strictEqual(instance.isDeleted(), false);
   instance.delete();
   assert.strictEqual(instance.isDeleted(), true);
 
-  const again = gs.newInstance();
+  const again = new gs.Instance();
   again.delete();
 });

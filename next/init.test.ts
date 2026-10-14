@@ -5,7 +5,7 @@ import createModule from "./gs.js";
 
 await test("initWithArgs and exit", async () => {
   const gs = await createModule();
-  const instance = gs.newInstance();
+  const instance = new gs.Instance();
   try {
     assert.strictEqual(
       instance.initWithArgs(["gs", "-dQUIET", "-dNOPAUSE", "-dBATCH", "-sDEVICE=nullpage"]),
@@ -19,7 +19,7 @@ await test("initWithArgs and exit", async () => {
 
 await test("initWithArgs --version returns gs_error_Info", async () => {
   const gs = await createModule();
-  const instance = gs.newInstance();
+  const instance = new gs.Instance();
   try {
     assert.strictEqual(instance.initWithArgs(["gs", "--version"]), gs.gs_error_Info);
   } finally {
@@ -29,7 +29,7 @@ await test("initWithArgs --version returns gs_error_Info", async () => {
 
 await test("initWithArgs throws on an unknown device", async () => {
   const gs = await createModule();
-  const instance = gs.newInstance();
+  const instance = new gs.Instance();
   try {
     assert.throws(
       () => instance.initWithArgs(["gs", "-dQUIET", "-sDEVICE=nosuchdevice"]),
