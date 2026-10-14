@@ -14,9 +14,10 @@ extern "C" {
 namespace gsapi {
 
 [[noreturn]] inline auto throwReturned(const char *name, int ret) -> void {
-  emscripten::val::global("Error")
-      .new_(std::string(name) + " returned " + std::to_string(ret))
-      .throw_();
+  std::string message = std::string(name) + " returned " + std::to_string(ret);
+  emscripten::val error = emscripten::val::global("Error").new_(message);
+  error.set("code", ret);
+  error.throw_();
 }
 
 inline auto ensureNotSuspended() -> void {
