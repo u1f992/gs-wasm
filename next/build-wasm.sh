@@ -25,7 +25,7 @@ emmake make --jobs=`nproc` libgs
 cd ..
 
 em++ -g --profiling-funcs \
-  -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices \
+  -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
   -lembind \
   -s STACK_SIZE=8388608 \
   -s ALLOW_MEMORY_GROWTH=1 \

@@ -491,6 +491,68 @@ await test("control paths", async () => {
   }
 });
 
+await test("addFs and removeFs", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const stdout: number[] = [];
+  const opened: string[] = [];
+  const content = new TextEncoder().encode("(v) print flush\n");
+  const fs = {
+    open_file(fname: string, mode: string) {
+      if (fname !== "/virtual/program.ps") {
+        return null;
+      }
+      opened.push(mode);
+      let position = 0;
+      return {
+        read: (buf: Uint8Array) => {
+          const chunk = content.subarray(position, position + buf.length);
+          buf.set(chunk);
+          position += chunk.length;
+          return chunk.length;
+        },
+        write: () => -1,
+        seek: (offset: number, whence: number) => {
+          position =
+            whence === 0 ? offset : whence === 1 ? position + offset : content.length + offset;
+          return 0;
+        },
+        tell: () => position,
+        eof: () => position >= content.length,
+        seekable: () => true,
+        close: () => {
+          opened.push("closed");
+          return 0;
+        },
+      };
+    },
+  };
+  try {
+    instance.setStdio(
+      null,
+      (buf: Uint8Array) => {
+        stdout.push(...buf);
+        return buf.length;
+      },
+      null,
+    );
+    assert.strictEqual(instance.addFs(fs), 0);
+    assert.strictEqual(await instance.initWithArgs(interpreterArgs), 0);
+    assert.deepStrictEqual(await instance.runFile("/virtual/program.ps", -1), {
+      code: 0,
+      exitCode: 0,
+    });
+    assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "v");
+    assert.deepStrictEqual(opened, ["r", "closed"]);
+    instance.removeFs(fs);
+    const { code } = await instance.runFile("/virtual/program.ps", -1);
+    assert.ok(code < 0, `code: ${code}`);
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+});
+
 await test("runFile", async () => {
   const gs = await createModule();
   const instance = new gs.Instance();
