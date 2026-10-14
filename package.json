@@ -6,7 +6,7 @@
     ]
   },
   "name": "@u1f992/gs-wasm",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Wasm binding of the Ghostscript Interpreter API, built from ArtifexSoftware/ghostpdl 10.08.0.",
   "repository": {
     "type": "git",
