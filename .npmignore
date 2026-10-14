@@ -2,7 +2,7 @@
 .github
 .vscode
 ghostpdl
-scripts
+Makefile
 src
 tests
 wasm

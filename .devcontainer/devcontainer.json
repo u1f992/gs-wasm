@@ -1,0 +1,12 @@
+{
+  "name": "gs-wasm",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "ubuntu",
+  "customizations": {
+    "vscode": {
+      "extensions": ["oxc.oxc-vscode", "ms-vscode.cpptools"]
+    }
+  }
+}

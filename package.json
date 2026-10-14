@@ -17,12 +17,10 @@
     "gs-wasm": "dist/cli.js"
   },
   "scripts": {
-    "lint": "tsc --project tsconfig.tools.json && oxlint --fix src tests",
-    "format": "tsc --project tsconfig.tools.json && oxfmt src tests",
-    "build:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:6.0.12 bash scripts/build.sh",
-    "clean:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:6.0.12 sh -c \"cd ghostpdl && emmake make clean\" && shx rm src/gs.js src/gs.wasm src/gs.d.ts",
-    "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm && shx cp src/gs.d.ts dist/gs.d.ts",
-    "clean": "shx rm -rf dist",
+    "lint": "tsc --project tsconfig.tools.json && oxlint --fix src tests && make tidy",
+    "format": "tsc --project tsconfig.tools.json && oxfmt src tests && make format",
+    "build": "make && tsc && cp src/gs.js src/gs.wasm src/gs.d.ts dist/",
+    "clean": "make clean && rm -rf dist",
     "test": "tsc --project tests && node --test \"tests/**/*.test.ts\""
   },
   "keywords": [],
@@ -30,11 +28,10 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "devDependencies": {
-    "@types/node": "^22.20.5",
+    "@types/node": "^24.19.0",
     "oxfmt": "^0.73.0",
     "oxlint": "^1.88.0",
     "oxlint-tsgolint": "^7.0.2004",
-    "shx": "^0.4.0",
     "typescript": "^7.0.2"
   }
 }
