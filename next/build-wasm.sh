@@ -25,7 +25,8 @@ emmake make --jobs=`nproc` libgs
 cd ..
 
 em++ -g --profiling-funcs \
-  -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
+  -std=c++17 \
+  -Inext/src -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
   -lembind \
   -s STACK_SIZE=8388608 \
   -s ALLOW_MEMORY_GROWTH=1 \
@@ -33,10 +34,11 @@ em++ -g --profiling-funcs \
   -s ASYNCIFY_STACK_SIZE=1048576 \
   -s MODULARIZE=1 \
   -s EXPORT_ES6=1 \
-  -s EXPORTED_RUNTIME_METHODS=FS \
+  -s EXPORTED_FUNCTIONS=_malloc,_free \
+  -s EXPORTED_RUNTIME_METHODS=FS,HEAPU8 \
   --emit-tsd gs.d.ts \
   -o next/gs.js \
-  next/bindings.cpp ghostpdl/bin/gs.a
+  next/src/*.cpp ghostpdl/bin/gs.a
 
 cd ghostpdl
 git reset --hard

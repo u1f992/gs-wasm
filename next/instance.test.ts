@@ -322,7 +322,7 @@ await test("setDisplayCallback", async () => {
   const gs = await createModule();
   const instance = new gs.Instance();
   const events: string[] = [];
-  let image: Uint8Array | null = null;
+  let image = 0;
   let snapshot: Uint8Array | null = null;
   let size: [number, number, number] | null = null;
   const format =
@@ -359,7 +359,8 @@ await test("setDisplayCallback", async () => {
         },
         display_page: async () => {
           events.push("page");
-          snapshot = image!.slice();
+          const [, height, raster] = size!;
+          snapshot = gs.HEAPU8.slice(image, image + raster * height);
           return 0;
         },
       }),
@@ -395,6 +396,110 @@ await test("setDisplayCallback", async () => {
     Array.from(snapshot!.subarray(y * raster + x * 3, y * raster + x * 3 + 3));
   assert.deepStrictEqual(pixel(0, 1), [0, 0, 255]);
   assert.deepStrictEqual(pixel(3, 0), [255, 255, 255]);
+});
+
+await test("setDisplayCallback with display_memalloc and display_memfree", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const allocated: number[] = [];
+  const freed: number[] = [];
+  const format =
+    gs.DISPLAY_COLORS_RGB | gs.DISPLAY_ALPHA_NONE | gs.DISPLAY_DEPTH_8 | gs.DISPLAY_BIGENDIAN;
+  try {
+    instance.setDisplayCallback({
+      display_memalloc: (_device, size) => {
+        const mem = gs._malloc(size);
+        allocated.push(mem);
+        return mem;
+      },
+      display_memfree: (_device, mem) => {
+        freed.push(mem);
+        gs._free(mem);
+        return 0;
+      },
+    });
+    assert.strictEqual(
+      await instance.initWithArgs([
+        "gs",
+        "-dQUIET",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-sDEVICE=display",
+        `-dDisplayFormat=${format}`,
+        "-g4x2",
+        "-r72",
+        "-c",
+        "showpage",
+      ]),
+      0,
+    );
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+  assert.ok(allocated.length > 0);
+  assert.ok(allocated.every((mem) => mem !== 0));
+  assert.deepStrictEqual(freed, allocated);
+});
+
+await test("setDisplayCallback with display_rectangle_request", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const requests: [number, number][] = [];
+  let buffer = 0;
+  let bufferRaster = 0;
+  let pages = 0;
+  const format =
+    gs.DISPLAY_COLORS_RGB | gs.DISPLAY_ALPHA_NONE | gs.DISPLAY_DEPTH_8 | gs.DISPLAY_BIGENDIAN;
+  try {
+    instance.setDisplayCallback({
+      display_memalloc: () => 0,
+      display_memfree: () => 0,
+      display_page: () => {
+        pages += 1;
+        return 0;
+      },
+      display_rectangle_request: (_device, raster, plane_raster) => {
+        requests.push([raster, plane_raster]);
+        if (requests.length > 1) {
+          return null;
+        }
+        bufferRaster = raster;
+        buffer = gs._malloc(raster * 2);
+        return { memory: buffer, x: 0, y: 0, w: 4, h: 2 };
+      },
+    });
+    assert.strictEqual(
+      await instance.initWithArgs([
+        "gs",
+        "-dQUIET",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-sDEVICE=display",
+        `-dDisplayFormat=${format}`,
+        "-g4x2",
+        "-r72",
+        "-c",
+        "0 0 1 setrgbcolor 0 0 2 2 rectfill showpage",
+      ]),
+      0,
+    );
+    assert.strictEqual(pages, 0);
+    assert.strictEqual(requests.length, 2);
+    const pixel = (x: number, y: number) =>
+      Array.from(
+        gs.HEAPU8.subarray(
+          buffer + y * bufferRaster + x * 3,
+          buffer + y * bufferRaster + x * 3 + 3,
+        ),
+      );
+    assert.deepStrictEqual(pixel(0, 1), [0, 0, 255]);
+    assert.deepStrictEqual(pixel(3, 0), [255, 255, 255]);
+    gs._free(buffer);
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
 });
 
 await test("registerCallout and deregisterCallout", async () => {
