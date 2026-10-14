@@ -1,100 +1,52 @@
 #!/usr/bin/env node
-import { gs } from "./index.ts";
-import fs from "node:fs";
-import upath from "upath";
+import process from "node:process";
 
-const rawArgs = process.argv.slice(2);
-const separatorIndex = rawArgs.indexOf("--");
-const args = separatorIndex === -1 ? rawArgs : rawArgs.slice(0, separatorIndex);
-const fileArgs = separatorIndex === -1 ? [] : rawArgs.slice(separatorIndex + 1);
+import createModule from "./gs.js";
+import { hostFileSystem } from "./host-fs.ts";
+import { stdinReader, streamWriter } from "./stdio.ts";
 
-const inputFiles: Record<string, Uint8Array> = {};
-const outputFilePaths: string[] = [];
-const outputFileMapping: Record<string, string> = {};
-const cwd = process.cwd();
-
-for (let i = 0; i < fileArgs.length; i += 2) {
-  const flag = fileArgs[i];
-  const fileSpec = fileArgs[i + 1];
-
-  if (!flag || !fileSpec) {
-    throw new Error(`Invalid file argument at position ${i}`);
+function returnedCode(error: unknown): number {
+  const code = error instanceof Error ? (error as { code?: unknown }).code : undefined;
+  if (typeof code === "number") {
+    return code;
   }
-
-  if (flag !== "-i" && flag !== "--input" && flag !== "-o" && flag !== "--output") {
-    throw new Error(`Invalid flag "${flag}". Must be -i, --input, -o, or --output`);
-  }
-
-  if (flag === "-i" || flag === "--input") {
-    // input: actualPath:vmPath
-    const colonIndex = fileSpec.lastIndexOf(":");
-    const actualPath = colonIndex === -1 ? fileSpec : fileSpec.slice(0, colonIndex);
-    const vmPath =
-      colonIndex === -1
-        ? upath.normalize(upath.relative(cwd, upath.resolve(cwd, fileSpec)))
-        : fileSpec.slice(colonIndex + 1);
-
-    inputFiles[vmPath] = fs.readFileSync(actualPath);
-  } else {
-    // output: vmPath:actualPath
-    const colonIndex = fileSpec.lastIndexOf(":");
-    const vmPath = colonIndex === -1 ? fileSpec : fileSpec.slice(0, colonIndex);
-    const actualPath =
-      colonIndex === -1 ? upath.resolve(cwd, fileSpec) : fileSpec.slice(colonIndex + 1);
-
-    outputFilePaths.push(vmPath);
-    outputFileMapping[vmPath] = actualPath;
-  }
+  throw error;
 }
 
-const result = await gs({
-  args,
-  inputFiles,
-  outputFilePaths,
-  onStdin: (() => {
-    const stdinBuffer: (number | null)[] = [];
-    const waitingResolvers: ((value: number | null) => void)[] = [];
-    function wake() {
-      while (waitingResolvers.length > 0 && stdinBuffer.length > 0) {
-        waitingResolvers.shift()!(stdinBuffer.shift()!);
-      }
-    }
-    process.stdin.on("data", (data) => {
-      stdinBuffer.push(...data, null);
-      wake();
-    });
-    process.stdin.on("close", () => {
-      stdinBuffer.push(null);
-      wake();
-    });
-    return async () =>
-      new Promise((resolve) => {
-        if (stdinBuffer.length > 0) {
-          resolve(stdinBuffer.shift()!);
-        } else {
-          waitingResolvers.push(resolve);
-        }
-      });
-  })(),
-  onStdout(charCode) {
-    if (charCode !== null) {
-      process.stdout.write(String.fromCharCode(charCode));
-    }
-  },
-  onStderr(charCode) {
-    if (charCode !== null) {
-      process.stderr.write(String.fromCharCode(charCode));
-    }
-  },
-});
+const gs = await createModule();
+const instance = new gs.Instance();
+instance.setStdio(
+  stdinReader(process.stdin),
+  streamWriter(process.stdout),
+  streamWriter(process.stderr),
+);
+instance.setArgEncoding(gs.GS_ARG_ENCODING_UTF8);
+instance.addFs(hostFileSystem());
 
-for (const [vmPath, data] of Object.entries(result.outputFiles)) {
-  const actualPath = outputFileMapping[vmPath] || upath.resolve(cwd, vmPath);
-  const dirPath = upath.dirname(actualPath);
-  if (dirPath) {
-    fs.mkdirSync(dirPath, { recursive: true });
+let code: number;
+try {
+  code = await instance.initWithArgs(["gs", ...process.argv.slice(2)]);
+  if (code === 0) {
+    code = (await instance.runString("systemdict /start get exec\n", 0)).code;
   }
-  fs.writeFileSync(actualPath, data);
+} catch (error) {
+  code = returnedCode(error);
 }
 
-process.exit(result.exitCode);
+let exitResult: number;
+try {
+  exitResult = await instance.exit();
+} catch (error) {
+  exitResult = returnedCode(error);
+}
+if (code === 0 || code === gs.gs_error_Quit) {
+  code = exitResult;
+}
+instance.delete();
+
+process.exitCode =
+  code === 0 || code === gs.gs_error_Info || code === gs.gs_error_Quit
+    ? 0
+    : code === gs.gs_error_Fatal
+      ? 1
+      : 255;

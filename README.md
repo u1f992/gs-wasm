@@ -1,25 +1,15 @@
 # @u1f992/gs-wasm
 
-WASM build variant of [ArtifexSoftware/ghostpdl 10.08.0](https://github.com/ArtifexSoftware/ghostpdl/tree/ghostpdl-10.08.0).
+Wasm binding of the [Ghostscript Interpreter API](https://github.com/ArtifexSoftware/ghostpdl/blob/ghostpdl-10.08.0/doc/src/API.rst), built from [ArtifexSoftware/ghostpdl 10.08.0](https://github.com/ArtifexSoftware/ghostpdl/tree/ghostpdl-10.08.0).
 
 ## Usage
 
-See [tests/index.test.ts](tests/index.test.ts) for usage examples.
+See [src/cli.ts](src/cli.ts) for a usage example.
 
-A CLI `gs-wasm` is also available.
+A CLI `gs-wasm` is also available. It takes the same arguments as `gs` and reads and writes files in the host filesystem.
 
 ```bash
 $ npx --yes @u1f992/gs-wasm --version
-```
-
-Use `--` separator to specify input and output files that should be transferred between the host filesystem and the WASM in-memory FS.
-
-```bash
-$ npx --yes @u1f992/gs-wasm -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=output.png input.pdf -- -i input.pdf -o output.png
-
-# Long options
-$ npx --yes @u1f992/gs-wasm -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=output.ps input.pdf -- --input input.pdf --output output.ps
-
-# Path mapping
-$ npx --yes @u1f992/gs-wasm -dNOPAUSE -dBATCH -sDEVICE=ps2write -sOutputFile=output.ps input.pdf -- -i actual-path.pdf:input.pdf -o output.ps:actual-path.ps
+$ npx --yes @u1f992/gs-wasm -dNOPAUSE -dBATCH -sDEVICE=png16m -r150 -sOutputFile=output.png input.pdf
+$ echo "(hello) print flush" | npx --yes @u1f992/gs-wasm -dQUIET -dNOPAUSE -dBATCH -sDEVICE=nullpage -
 ```
