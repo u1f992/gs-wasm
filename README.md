@@ -1,6 +1,6 @@
 # @u1f992/gs-wasm
 
-WASM build variant of [ArtifexSoftware/ghostpdl 10.08.0](https://github.com/ArtifexSoftware/ghostpdl/tree/ghostpdl-10.08.0).
+Wasm binding of the [Ghostscript Interpreter API](https://github.com/ArtifexSoftware/ghostpdl/blob/ghostpdl-10.08.0/doc/src/API.rst), built from [ArtifexSoftware/ghostpdl 10.08.0](https://github.com/ArtifexSoftware/ghostpdl/tree/ghostpdl-10.08.0).
 
 ## Usage
 
