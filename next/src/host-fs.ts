@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { FileOps, FileSystem } from "../gs.js";
+import type { FileOps, FileSystem } from "./gs.js";
 
 const SEEK_SET = 0;
 const SEEK_CUR = 1;

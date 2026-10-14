@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 
-import createModule from "../gs.js";
+import createModule from "./gs.js";
 import { hostFileSystem } from "./host-fs.ts";
 import { stdinReader, streamWriter } from "./stdio.ts";
 

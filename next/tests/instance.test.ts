@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
 
-import createModule from "../gs.js";
+import createModule from "../src/gs.js";
 import { interpreterArgs, withInstance } from "./helpers.ts";
 
 await test("constructor and delete", async () => {

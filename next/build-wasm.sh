@@ -37,7 +37,7 @@ em++ -g --profiling-funcs \
   -s EXPORTED_FUNCTIONS=_malloc,_free \
   -s EXPORTED_RUNTIME_METHODS=FS,HEAPU8 \
   --emit-tsd gs.d.ts \
-  -o next/gs.js \
+  -o next/src/gs.js \
   next/wasm/*.cpp ghostpdl/bin/gs.a
 
 cd ghostpdl

@@ -1,4 +1,4 @@
-import createModule, { type Instance, type MainModule } from "../gs.js";
+import createModule, { type Instance, type MainModule } from "../src/gs.js";
 
 export const interpreterArgs = ["gs", "-dQUIET", "-dNOPAUSE", "-sDEVICE=nullpage"];
 
