@@ -271,12 +271,45 @@ await test("runStringWithLength accepts bytes", async () => {
   assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "b");
 });
 
-await test("setPoll", async () => {
+await test("setStdioWithHandle passes the caller handle", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const handle = { tag: "caller" };
+  const handles: unknown[] = [];
+  const stdout: number[] = [];
+  try {
+    assert.strictEqual(
+      instance.setStdioWithHandle(
+        null,
+        (buf: Uint8Array, callerHandle: unknown) => {
+          handles.push(callerHandle);
+          stdout.push(...buf);
+          return buf.length;
+        },
+        null,
+        handle,
+      ),
+      0,
+    );
+    assert.strictEqual(await instance.initWithArgs(["gs", "--version"]), gs.gs_error_Info);
+  } finally {
+    instance.delete();
+  }
+  assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "10.08.0\n");
+  assert.ok(handles.length > 0);
+  assert.ok(handles.every((h) => h === handle));
+});
+
+await test("setPoll and setPollWithHandle", async () => {
   const gs = await createModule();
   const instance = new gs.Instance();
   try {
     assert.strictEqual(
       instance.setPoll(() => 0),
+      0,
+    );
+    assert.strictEqual(
+      instance.setPollWithHandle(() => 0, { tag: "caller" }),
       0,
     );
     assert.strictEqual(instance.setPoll(null), 0);

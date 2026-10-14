@@ -15,6 +15,7 @@ extern "C" {
 EMSCRIPTEN_DECLARE_VAL_TYPE(ArgList);
 EMSCRIPTEN_DECLARE_VAL_TYPE(StdioCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(PollCallback);
+EMSCRIPTEN_DECLARE_VAL_TYPE(CallerHandle);
 EMSCRIPTEN_DECLARE_VAL_TYPE(CalloutCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(DisplayCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(FileSystem);
@@ -285,7 +286,9 @@ class Instance {
   emscripten::val stdinFn = emscripten::val::null();
   emscripten::val stdoutFn = emscripten::val::null();
   emscripten::val stderrFn = emscripten::val::null();
+  emscripten::val stdioHandle = emscripten::val::undefined();
   emscripten::val pollFn = emscripten::val::null();
+  emscripten::val pollHandle = emscripten::val::undefined();
   std::vector<std::unique_ptr<CalloutRegistration>> callouts;
   std::vector<std::unique_ptr<FsRegistration>> filesystems;
   emscripten::val displayFns = emscripten::val::null();
@@ -387,24 +390,24 @@ class Instance {
   static auto onStdin(void *callerHandle, char *buf, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
     auto view = emscripten::typed_memory_view(len, reinterpret_cast<unsigned char *>(buf));
-    return settled(self->stdinFn(view)).as<int>();
+    return settled(self->stdinFn(view, self->stdioHandle)).as<int>();
   }
 
   static auto onStdout(void *callerHandle, const char *str, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
     auto view = emscripten::typed_memory_view(len, reinterpret_cast<const unsigned char *>(str));
-    return settled(self->stdoutFn(view)).as<int>();
+    return settled(self->stdoutFn(view, self->stdioHandle)).as<int>();
   }
 
   static auto onStderr(void *callerHandle, const char *str, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
     auto view = emscripten::typed_memory_view(len, reinterpret_cast<const unsigned char *>(str));
-    return settled(self->stderrFn(view)).as<int>();
+    return settled(self->stderrFn(view, self->stdioHandle)).as<int>();
   }
 
   static auto onPoll(void *callerHandle) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
-    return settled(self->pollFn()).as<int>();
+    return settled(self->pollFn(self->pollHandle)).as<int>();
   }
 
   template <typename T>
@@ -452,6 +455,7 @@ public:
     this->stdinFn = stdinFn;
     this->stdoutFn = stdoutFn;
     this->stderrFn = stderrFn;
+    this->stdioHandle = emscripten::val::undefined();
     int ret = gsapi_set_stdio(instance, stdinFn.isNull() ? nullptr : &onStdin,
                               stdoutFn.isNull() ? nullptr : &onStdout,
                               stderrFn.isNull() ? nullptr : &onStderr);
@@ -461,11 +465,37 @@ public:
     return ret;
   }
 
+  auto setStdioWithHandle(StdioCallback stdinFn, StdioCallback stdoutFn, StdioCallback stderrFn,
+                          CallerHandle callerHandle) -> int {
+    this->stdinFn = stdinFn;
+    this->stdoutFn = stdoutFn;
+    this->stderrFn = stderrFn;
+    this->stdioHandle = callerHandle;
+    int ret = gsapi_set_stdio_with_handle(instance, stdinFn.isNull() ? nullptr : &onStdin,
+                                          stdoutFn.isNull() ? nullptr : &onStdout,
+                                          stderrFn.isNull() ? nullptr : &onStderr, this);
+    if (ret != 0) {
+      throwReturned("gsapi_set_stdio_with_handle", ret);
+    }
+    return ret;
+  }
+
   auto setPoll(PollCallback pollFn) -> int {
     this->pollFn = pollFn;
+    this->pollHandle = emscripten::val::undefined();
     int ret = gsapi_set_poll(instance, pollFn.isNull() ? nullptr : &onPoll);
     if (ret != 0) {
       throwReturned("gsapi_set_poll", ret);
+    }
+    return ret;
+  }
+
+  auto setPollWithHandle(PollCallback pollFn, CallerHandle callerHandle) -> int {
+    this->pollFn = pollFn;
+    this->pollHandle = callerHandle;
+    int ret = gsapi_set_poll_with_handle(instance, pollFn.isNull() ? nullptr : &onPoll, this);
+    if (ret != 0) {
+      throwReturned("gsapi_set_poll_with_handle", ret);
     }
     return ret;
   }
@@ -771,9 +801,11 @@ public:
 EMSCRIPTEN_BINDINGS(gs) {
   emscripten::register_type<ArgList>("string[]");
   emscripten::register_type<StdioCallback>(
-      "StdioCallback", "((buf: Uint8Array) => number | Promise<number>) | null");
-  emscripten::register_type<PollCallback>("PollCallback",
-                                          "(() => number | Promise<number>) | null");
+      "StdioCallback",
+      "((buf: Uint8Array, callerHandle: unknown) => number | Promise<number>) | null");
+  emscripten::register_type<PollCallback>(
+      "PollCallback", "((callerHandle: unknown) => number | Promise<number>) | null");
+  emscripten::register_type<CallerHandle>("unknown");
   emscripten::register_type<CalloutCallback>(
       "CalloutCallback",
       "(deviceName: string, id: number, size: number, data: Uint8Array) => number | "
@@ -929,7 +961,9 @@ EMSCRIPTEN_BINDINGS(gs) {
   emscripten::class_<gsapi::Instance>("Instance")
       .constructor(&gsapi::Instance::create, emscripten::allow_raw_pointers())
       .function("setStdio", &gsapi::Instance::setStdio)
+      .function("setStdioWithHandle", &gsapi::Instance::setStdioWithHandle)
       .function("setPoll", &gsapi::Instance::setPoll)
+      .function("setPollWithHandle", &gsapi::Instance::setPollWithHandle)
       .function("setDisplayCallback", &gsapi::Instance::setDisplayCallback)
       .function("addFs", &gsapi::Instance::addFs)
       .function("removeFs", &gsapi::Instance::removeFs)
