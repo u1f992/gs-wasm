@@ -21,6 +21,28 @@ auto revision() -> gsapi_revision_t {
   return r;
 }
 
+class Instance {
+public:
+  void *instance = nullptr;
+
+  Instance() = default;
+  Instance(const Instance &) = delete;
+  auto operator=(const Instance &) -> Instance & = delete;
+  ~Instance() { gsapi_delete_instance(instance); }
+};
+
+auto newInstance() -> Instance * {
+  auto *inst = new Instance();
+  int ret = gsapi_new_instance(&inst->instance, inst);
+  if (ret != 0) {
+    delete inst;
+    emscripten::val::global("Error")
+        .new_("gsapi_new_instance returned " + std::to_string(ret))
+        .throw_();
+  }
+  return inst;
+}
+
 EMSCRIPTEN_BINDINGS(gs) {
   emscripten::value_object<gsapi_revision_t>("Revision")
       .field("product", &Revision::getProduct, &Revision::setProduct)
@@ -29,4 +51,9 @@ EMSCRIPTEN_BINDINGS(gs) {
       .field("revisiondate", &gsapi_revision_t::revisiondate);
 
   emscripten::function("revision", &revision);
+
+  emscripten::class_<Instance>("Instance");
+
+  emscripten::function("newInstance", &newInstance, emscripten::allow_raw_pointers(),
+                       emscripten::nonnull<emscripten::ret_val>());
 }
