@@ -47,6 +47,24 @@ await test("cli reads and writes host files", async () => {
   assert.ok(fs.readFileSync(`${out}${output}`, "latin1").startsWith("%!PS-Adobe"));
 });
 
+await test("cli writes a raster page to a host file", async () => {
+  const output = "manuscript.png";
+  fs.rmSync(new URL(output, `file://${out}`), { force: true });
+  const { status, stderr } = await run([
+    "-dQUIET",
+    "-dNOPAUSE",
+    "-dBATCH",
+    "-sDEVICE=png16m",
+    "-r150",
+    `-sOutputFile=${output}`,
+    fixture,
+  ]);
+  assert.strictEqual(status, 0, stderr.toString());
+  assert.ok(
+    fs.readFileSync(`${out}${output}`).subarray(0, 4).equals(Buffer.from("\x89PNG", "latin1")),
+  );
+});
+
 await test("cli writes an output file to stdout", async () => {
   const { status, stdout, stderr } = await run([
     "-dQUIET",

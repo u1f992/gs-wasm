@@ -86,15 +86,18 @@ function hostFile(fd: number, mode: string): FileOps {
 }
 
 export function hostFileSystem(cwd: string = process.cwd()): FileSystem {
+  const openFile = (fname: string, mode: string) => {
+    let fd: number;
+    try {
+      fd = fs.openSync(path.resolve(cwd, fname), mode.replace(/[bt]/g, ""));
+    } catch {
+      return null;
+    }
+    return hostFile(fd, mode);
+  };
   return {
-    open_file(fname, mode) {
-      let fd: number;
-      try {
-        fd = fs.openSync(path.resolve(cwd, fname), mode.replace(/[bt]/g, ""));
-      } catch {
-        return null;
-      }
-      return hostFile(fd, mode);
-    },
+    open_file: openFile,
+    open_printer: (fname, binary) =>
+      fname.startsWith("|") ? null : openFile(fname, binary ? "wb" : "w"),
   };
 }
