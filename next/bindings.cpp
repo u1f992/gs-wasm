@@ -13,6 +13,13 @@ auto throwReturned(const char *name, int ret) -> void {
       .throw_();
 }
 
+auto settled(emscripten::val result) -> emscripten::val {
+  if (result.instanceof(emscripten::val::global("Promise"))) {
+    return result.await();
+  }
+  return result;
+}
+
 namespace Revision {
 auto getProduct(const gsapi_revision_t &r) -> std::string { return r.product; }
 auto setProduct(gsapi_revision_t &, std::string) -> void {}
@@ -38,19 +45,19 @@ class Instance {
   static auto onStdin(void *callerHandle, char *buf, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
     auto view = emscripten::typed_memory_view(len, reinterpret_cast<unsigned char *>(buf));
-    return self->stdinFn(view).as<int>();
+    return settled(self->stdinFn(view)).as<int>();
   }
 
   static auto onStdout(void *callerHandle, const char *str, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
     auto view = emscripten::typed_memory_view(len, reinterpret_cast<const unsigned char *>(str));
-    return self->stdoutFn(view).as<int>();
+    return settled(self->stdoutFn(view)).as<int>();
   }
 
   static auto onStderr(void *callerHandle, const char *str, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
     auto view = emscripten::typed_memory_view(len, reinterpret_cast<const unsigned char *>(str));
-    return self->stderrFn(view).as<int>();
+    return settled(self->stderrFn(view)).as<int>();
   }
 
 public:

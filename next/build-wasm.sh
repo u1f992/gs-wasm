@@ -29,6 +29,8 @@ em++ -g --profiling-funcs \
   -lembind \
   -s STACK_SIZE=8388608 \
   -s ALLOW_MEMORY_GROWTH=1 \
+  -s ASYNCIFY=1 \
+  -s ASYNCIFY_STACK_SIZE=1048576 \
   -s MODULARIZE=1 \
   -s EXPORT_ES6=1 \
   --emit-tsd gs.d.ts \
