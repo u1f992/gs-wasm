@@ -13,6 +13,7 @@ auto setCopyright(gsapi_revision_t &, std::string) -> void {}
 } // namespace Revision
 
 auto revision() -> gsapi_revision_t {
+  ensureNotSuspended();
   gsapi_revision_t r{};
   int ret = gsapi_revision(&r, sizeof(r));
   if (ret != 0) {

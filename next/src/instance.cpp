@@ -8,6 +8,7 @@ namespace gsapi {
 Instance::~Instance() { gsapi_delete_instance(instance); }
 
 auto Instance::create() -> Instance * {
+  ensureNotSuspended();
   auto *inst = new Instance();
   int ret = gsapi_new_instance(&inst->instance, inst);
   if (ret != 0) {
@@ -407,41 +408,54 @@ auto Instance::isPathControlActive() -> bool {
   return gsapi_is_path_control_active(instance) != 0;
 }
 
+template <auto Method> struct Guarded;
+
+template <typename R, typename... Args, R (Instance::*Method)(Args...)>
+struct Guarded<Method> {
+  static auto call(Instance &self, Args... args) -> R {
+    ensureNotSuspended();
+    return (self.*Method)(args...);
+  }
+};
+
 } // namespace gsapi
 
 EMSCRIPTEN_BINDINGS(instance) {
+  using gsapi::Guarded;
+  using gsapi::Instance;
+
   emscripten::value_object<gsapi::RunResult>("RunResult")
       .field("code", &gsapi::RunResult::code)
       .field("exitCode", &gsapi::RunResult::exitCode);
 
-  emscripten::class_<gsapi::Instance>("Instance")
-      .constructor(&gsapi::Instance::create, emscripten::allow_raw_pointers())
-      .function("setStdio", &gsapi::Instance::setStdio)
-      .function("setStdioWithHandle", &gsapi::Instance::setStdioWithHandle)
-      .function("setPoll", &gsapi::Instance::setPoll)
-      .function("setPollWithHandle", &gsapi::Instance::setPollWithHandle)
-      .function("setDisplayCallback", &gsapi::Instance::setDisplayCallback)
-      .function("registerCallout", &gsapi::Instance::registerCallout)
-      .function("deregisterCallout", &gsapi::Instance::deregisterCallout)
-      .function("addFs", &gsapi::Instance::addFs)
-      .function("removeFs", &gsapi::Instance::removeFs)
-      .function("setDefaultDeviceList", &gsapi::Instance::setDefaultDeviceList)
-      .function("getDefaultDeviceList", &gsapi::Instance::getDefaultDeviceList)
-      .function("setArgEncoding", &gsapi::Instance::setArgEncoding)
-      .function("initWithArgs", &gsapi::Instance::initWithArgs)
-      .function("runStringBegin", &gsapi::Instance::runStringBegin)
-      .function("runStringContinue", &gsapi::Instance::runStringContinue)
-      .function("runStringEnd", &gsapi::Instance::runStringEnd)
-      .function("runStringWithLength", &gsapi::Instance::runStringWithLength)
-      .function("runString", &gsapi::Instance::runString)
-      .function("runFile", &gsapi::Instance::runFile)
-      .function("exit", &gsapi::Instance::exit)
-      .function("setParam", &gsapi::Instance::setParam)
-      .function("getParam", &gsapi::Instance::getParam)
-      .function("enumerateParams", &gsapi::Instance::enumerateParams)
-      .function("addControlPath", &gsapi::Instance::addControlPath)
-      .function("removeControlPath", &gsapi::Instance::removeControlPath)
-      .function("purgeControlPaths", &gsapi::Instance::purgeControlPaths)
-      .function("activatePathControl", &gsapi::Instance::activatePathControl)
-      .function("isPathControlActive", &gsapi::Instance::isPathControlActive);
+  emscripten::class_<Instance>("Instance")
+      .constructor(&Instance::create, emscripten::allow_raw_pointers())
+      .function("setStdio", &Guarded<&Instance::setStdio>::call)
+      .function("setStdioWithHandle", &Guarded<&Instance::setStdioWithHandle>::call)
+      .function("setPoll", &Guarded<&Instance::setPoll>::call)
+      .function("setPollWithHandle", &Guarded<&Instance::setPollWithHandle>::call)
+      .function("setDisplayCallback", &Guarded<&Instance::setDisplayCallback>::call)
+      .function("registerCallout", &Guarded<&Instance::registerCallout>::call)
+      .function("deregisterCallout", &Guarded<&Instance::deregisterCallout>::call)
+      .function("addFs", &Guarded<&Instance::addFs>::call)
+      .function("removeFs", &Guarded<&Instance::removeFs>::call)
+      .function("setDefaultDeviceList", &Guarded<&Instance::setDefaultDeviceList>::call)
+      .function("getDefaultDeviceList", &Guarded<&Instance::getDefaultDeviceList>::call)
+      .function("setArgEncoding", &Guarded<&Instance::setArgEncoding>::call)
+      .function("initWithArgs", &Guarded<&Instance::initWithArgs>::call)
+      .function("runStringBegin", &Guarded<&Instance::runStringBegin>::call)
+      .function("runStringContinue", &Guarded<&Instance::runStringContinue>::call)
+      .function("runStringEnd", &Guarded<&Instance::runStringEnd>::call)
+      .function("runStringWithLength", &Guarded<&Instance::runStringWithLength>::call)
+      .function("runString", &Guarded<&Instance::runString>::call)
+      .function("runFile", &Guarded<&Instance::runFile>::call)
+      .function("exit", &Guarded<&Instance::exit>::call)
+      .function("setParam", &Guarded<&Instance::setParam>::call)
+      .function("getParam", &Guarded<&Instance::getParam>::call)
+      .function("enumerateParams", &Guarded<&Instance::enumerateParams>::call)
+      .function("addControlPath", &Guarded<&Instance::addControlPath>::call)
+      .function("removeControlPath", &Guarded<&Instance::removeControlPath>::call)
+      .function("purgeControlPaths", &Guarded<&Instance::purgeControlPaths>::call)
+      .function("activatePathControl", &Guarded<&Instance::activatePathControl>::call)
+      .function("isPathControlActive", &Guarded<&Instance::isPathControlActive>::call);
 }
