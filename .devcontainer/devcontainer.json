@@ -1,8 +1,6 @@
 {
   "name": "gs-wasm",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "image": "ghcr.io/u1f992/gs-wasm-devcontainer@sha256:d9e768f69edb376a3753169b666c9e961a1269e75744b7bfea7e26a3aeb2e47c",
   "remoteUser": "ubuntu",
   "customizations": {
     "vscode": {
