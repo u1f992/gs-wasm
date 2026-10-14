@@ -7,7 +7,7 @@
   },
   "name": "@u1f992/gs-wasm",
   "version": "0.3.0",
-  "description": "WASM build variant of ArtifexSoftware/ghostpdl 10.07.0.",
+  "description": "WASM build variant of ArtifexSoftware/ghostpdl 10.08.0.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/u1f992/gs-wasm.git"
