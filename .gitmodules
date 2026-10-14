@@ -1,3 +1,4 @@
 [submodule "ghostpdl"]
 	path = ghostpdl
 	url = https://github.com/ArtifexSoftware/ghostpdl
+	ignore = untracked
