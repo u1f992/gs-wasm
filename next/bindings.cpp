@@ -1,14 +1,17 @@
 #include <cstdint>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
+#include <gdevdsp.h>
 #include <gserrors.h>
 #include <iapi.h>
+#include <memory>
 #include <string>
 #include <vector>
 
 EMSCRIPTEN_DECLARE_VAL_TYPE(ArgList);
 EMSCRIPTEN_DECLARE_VAL_TYPE(StdioCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(PollCallback);
+EMSCRIPTEN_DECLARE_VAL_TYPE(CalloutCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(ParamValue);
 EMSCRIPTEN_DECLARE_VAL_TYPE(GetParamResult);
 EMSCRIPTEN_DECLARE_VAL_TYPE(EnumerateParamsResult);
@@ -51,13 +54,28 @@ struct RunResult {
   int exitCode;
 };
 
+struct CalloutRegistration {
+  emscripten::val fn;
+};
+
 class Instance {
   void *instance = nullptr;
   emscripten::val stdinFn = emscripten::val::null();
   emscripten::val stdoutFn = emscripten::val::null();
   emscripten::val stderrFn = emscripten::val::null();
   emscripten::val pollFn = emscripten::val::null();
+  std::vector<std::unique_ptr<CalloutRegistration>> callouts;
   void *paramIterator = nullptr;
+
+  static auto onCallout(void *, void *calloutHandle, const char *deviceName, int id, int size,
+                        void *data) -> int {
+    auto *registration = static_cast<CalloutRegistration *>(calloutHandle);
+    auto view = emscripten::typed_memory_view(
+        data == nullptr || size < 0 ? 0 : size, static_cast<const unsigned char *>(data));
+    return settled(registration->fn(std::string(deviceName == nullptr ? "" : deviceName), id,
+                                    size, view))
+        .as<int>();
+  }
 
   static auto onStdin(void *callerHandle, char *buf, int len) -> int {
     auto *self = static_cast<Instance *>(callerHandle);
@@ -143,6 +161,27 @@ public:
       throwReturned("gsapi_set_poll", ret);
     }
     return ret;
+  }
+
+  auto registerCallout(CalloutCallback fn) -> int {
+    auto registration = std::make_unique<CalloutRegistration>(CalloutRegistration{fn});
+    int ret = gsapi_register_callout(instance, &onCallout, registration.get());
+    if (ret != 0) {
+      throwReturned("gsapi_register_callout", ret);
+    }
+    callouts.push_back(std::move(registration));
+    return ret;
+  }
+
+  auto deregisterCallout(CalloutCallback fn) -> void {
+    for (auto it = callouts.begin(); it != callouts.end();) {
+      if ((*it)->fn.strictlyEquals(fn)) {
+        gsapi_deregister_callout(instance, &onCallout, it->get());
+        it = callouts.erase(it);
+      } else {
+        ++it;
+      }
+    }
   }
 
   auto setDefaultDeviceList(const std::string &list) -> int {
@@ -360,6 +399,9 @@ EMSCRIPTEN_BINDINGS(gs) {
   emscripten::register_type<StdioCallback>(
       "((buf: Uint8Array) => number | Promise<number>) | null");
   emscripten::register_type<PollCallback>("(() => number | Promise<number>) | null");
+  emscripten::register_type<CalloutCallback>(
+      "(deviceName: string, id: number, size: number, data: Uint8Array) => number | "
+      "Promise<number>");
   emscripten::register_type<ParamValue>("boolean | number | bigint | string | null");
   emscripten::register_type<GetParamResult>(
       "{ code: number; value: boolean | number | bigint | string | null }");
@@ -394,6 +436,11 @@ EMSCRIPTEN_BINDINGS(gs) {
   emscripten::constant("GS_PERMIT_FILE_WRITING", static_cast<int>(GS_PERMIT_FILE_WRITING));
   emscripten::constant("GS_PERMIT_FILE_CONTROL", static_cast<int>(GS_PERMIT_FILE_CONTROL));
 
+  emscripten::constant("DISPLAY_CALLOUT_GET_CALLBACK",
+                       static_cast<int>(DISPLAY_CALLOUT_GET_CALLBACK));
+  emscripten::constant("DISPLAY_CALLOUT_GET_CALLBACK_LEGACY",
+                       static_cast<int>(DISPLAY_CALLOUT_GET_CALLBACK_LEGACY));
+
   emscripten::value_object<gsapi_revision_t>("Revision")
       .field("product", &gsapi::Revision::getProduct, &gsapi::Revision::setProduct)
       .field("copyright", &gsapi::Revision::getCopyright, &gsapi::Revision::setCopyright)
@@ -410,6 +457,8 @@ EMSCRIPTEN_BINDINGS(gs) {
       .constructor(&gsapi::Instance::create, emscripten::allow_raw_pointers())
       .function("setStdio", &gsapi::Instance::setStdio)
       .function("setPoll", &gsapi::Instance::setPoll)
+      .function("registerCallout", &gsapi::Instance::registerCallout)
+      .function("deregisterCallout", &gsapi::Instance::deregisterCallout)
       .function("setDefaultDeviceList", &gsapi::Instance::setDefaultDeviceList)
       .function("getDefaultDeviceList", &gsapi::Instance::getDefaultDeviceList)
       .function("setArgEncoding", &gsapi::Instance::setArgEncoding)
