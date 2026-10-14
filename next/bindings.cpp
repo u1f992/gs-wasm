@@ -31,6 +31,27 @@ auto revision() -> gsapi_revision_t {
 
 class Instance {
   void *instance = nullptr;
+  emscripten::val stdinFn = emscripten::val::null();
+  emscripten::val stdoutFn = emscripten::val::null();
+  emscripten::val stderrFn = emscripten::val::null();
+
+  static auto onStdin(void *callerHandle, char *buf, int len) -> int {
+    auto *self = static_cast<Instance *>(callerHandle);
+    auto view = emscripten::typed_memory_view(len, reinterpret_cast<unsigned char *>(buf));
+    return self->stdinFn(view).as<int>();
+  }
+
+  static auto onStdout(void *callerHandle, const char *str, int len) -> int {
+    auto *self = static_cast<Instance *>(callerHandle);
+    auto view = emscripten::typed_memory_view(len, reinterpret_cast<const unsigned char *>(str));
+    return self->stdoutFn(view).as<int>();
+  }
+
+  static auto onStderr(void *callerHandle, const char *str, int len) -> int {
+    auto *self = static_cast<Instance *>(callerHandle);
+    auto view = emscripten::typed_memory_view(len, reinterpret_cast<const unsigned char *>(str));
+    return self->stderrFn(view).as<int>();
+  }
 
 public:
   Instance() = default;
@@ -46,6 +67,20 @@ public:
       throwReturned("gsapi_new_instance", ret);
     }
     return inst;
+  }
+
+  auto setStdio(emscripten::val stdinFn, emscripten::val stdoutFn, emscripten::val stderrFn)
+      -> int {
+    this->stdinFn = stdinFn;
+    this->stdoutFn = stdoutFn;
+    this->stderrFn = stderrFn;
+    int ret = gsapi_set_stdio(instance, stdinFn.isNull() ? nullptr : &onStdin,
+                              stdoutFn.isNull() ? nullptr : &onStdout,
+                              stderrFn.isNull() ? nullptr : &onStderr);
+    if (ret != 0) {
+      throwReturned("gsapi_set_stdio", ret);
+    }
+    return ret;
   }
 
   auto initWithArgs(const emscripten::val &argv) -> int {
@@ -86,6 +121,7 @@ EMSCRIPTEN_BINDINGS(gs) {
 
   emscripten::class_<gsapi::Instance>("Instance")
       .constructor(&gsapi::Instance::create, emscripten::allow_raw_pointers())
+      .function("setStdio", &gsapi::Instance::setStdio)
       .function("initWithArgs", &gsapi::Instance::initWithArgs)
       .function("exit", &gsapi::Instance::exit);
 }
