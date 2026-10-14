@@ -31,7 +31,7 @@ ghostpdl/obj/arch.h: ghostpdl/Makefile
 	cd ghostpdl && emmake $(MAKE) obj/arch.h
 
 $(OUTPUTS) &: $(LIBGS) $(wildcard wasm/*.cpp) $(wildcard wasm/*.h)
-	em++ -g --profiling-funcs \
+	em++ -O2 \
 	  -std=c++17 \
 	  -Iwasm -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
 	  -lembind \
@@ -67,8 +67,8 @@ ghostpdl/configure: ghostpdl/configure.ac ghostpdl/autogen.sh
 ghostpdl/Makefile: ghostpdl/configure $(ARCH_H)
 	cd ghostpdl && emconfigure ./configure \
 	  CCAUX=gcc \
-	  CFLAGS='-g -Wno-error=incompatible-pointer-types' \
-	  LDFLAGS='-g' \
+	  CFLAGS='-O2 -Wno-error=incompatible-pointer-types' \
+	  LDFLAGS='-O2' \
 	  --host=wasm32-unknown-emscripten \
 	  --with-arch_h=arch/wasm32-unknown-emscripten.h
 
