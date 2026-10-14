@@ -5,6 +5,7 @@ ghostpdl
 scripts
 src
 tests
+wasm
 *.config.ts
 tsconfig*.json
 *.tgz

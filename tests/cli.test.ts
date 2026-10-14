@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import test from "node:test";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
-const fixture = fileURLToPath(new URL("../../tests/fixtures/manuscript.pdf", import.meta.url));
+const fixture = fileURLToPath(new URL("./fixtures/manuscript.pdf", import.meta.url));
 const out = fileURLToPath(new URL("./out/", import.meta.url));
 fs.mkdirSync(out, { recursive: true });
 

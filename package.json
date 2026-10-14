@@ -12,16 +12,16 @@
     "type": "git",
     "url": "git+https://github.com/u1f992/gs-wasm.git"
   },
-  "main": "dist/index.js",
+  "main": "dist/gs.js",
   "bin": {
     "gs-wasm": "dist/cli.js"
   },
   "scripts": {
     "lint": "tsc --project tsconfig.tools.json && oxlint --fix src tests",
     "format": "tsc --project tsconfig.tools.json && oxfmt src tests",
-    "build:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:6.0.12 bash scripts/build.sh && shx cp ghostpdl/bin/gs.js src/gs.js && shx cp ghostpdl/bin/gs.wasm src/gs.wasm",
-    "clean:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:6.0.12 sh -c \"cd ghostpdl && emmake make clean\" && shx rm src/gs.js src/gs.wasm",
-    "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm",
+    "build:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:6.0.12 bash scripts/build.sh",
+    "clean:wasm": "docker run --rm -v .:/src -w /src emscripten/emsdk:6.0.12 sh -c \"cd ghostpdl && emmake make clean\" && shx rm src/gs.js src/gs.wasm src/gs.d.ts",
+    "build": "tsc && shx cp src/gs.js dist/gs.js && shx cp src/gs.wasm dist/gs.wasm && shx cp src/gs.d.ts dist/gs.d.ts",
     "clean": "shx rm -rf dist",
     "test": "tsc --project tests && node --test \"tests/**/*.test.ts\""
   },
@@ -36,9 +36,5 @@
     "oxlint-tsgolint": "^7.0.2004",
     "shx": "^0.4.0",
     "typescript": "^7.0.2"
-  },
-  "dependencies": {
-    "upath": "^3.0.7",
-    "web-worker": "^1.5.0"
   }
 }

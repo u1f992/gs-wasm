@@ -11,7 +11,7 @@
     "target": "esnext",
     // "types": [],
     // For nodejs:
-    "lib": ["esnext", "WebWorker"],
+    "lib": ["esnext"],
     "types": ["node"],
     // and npm install -D @types/node
 

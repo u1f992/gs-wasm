@@ -21,11 +21,25 @@ emconfigure ./configure \
   LDFLAGS='-g' \
   --host=wasm32-unknown-emscripten \
   --with-arch_h=arch/wasm32-unknown-emscripten.h
-rm -f a.wasm
-emmake make \
-  --jobs=`nproc` \
-  XE='.js' \
-  GS_LDFLAGS='--profiling-funcs -s STACK_SIZE=8388608 -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s FORCE_FILESYSTEM=1 -s INVOKE_RUN=0 -s EXPORTED_RUNTIME_METHODS=["FS","callMain"]'
+emmake make --jobs=`nproc` libgs
+cd ..
 
+em++ -g --profiling-funcs \
+  -std=c++17 \
+  -Iwasm -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
+  -lembind \
+  -s STACK_SIZE=8388608 \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s ASYNCIFY=1 \
+  -s ASYNCIFY_STACK_SIZE=1048576 \
+  -s MODULARIZE=1 \
+  -s EXPORT_ES6=1 \
+  -s EXPORTED_FUNCTIONS=_malloc,_free \
+  -s EXPORTED_RUNTIME_METHODS=FS,HEAPU8 \
+  --emit-tsd gs.d.ts \
+  -o src/gs.js \
+  wasm/*.cpp ghostpdl/bin/gs.a
+
+cd ghostpdl
 git reset --hard
 git clean -fd
