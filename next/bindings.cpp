@@ -12,6 +12,7 @@ EMSCRIPTEN_DECLARE_VAL_TYPE(ArgList);
 EMSCRIPTEN_DECLARE_VAL_TYPE(StdioCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(PollCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(CalloutCallback);
+EMSCRIPTEN_DECLARE_VAL_TYPE(DisplayCallback);
 EMSCRIPTEN_DECLARE_VAL_TYPE(ParamValue);
 EMSCRIPTEN_DECLARE_VAL_TYPE(GetParamResult);
 EMSCRIPTEN_DECLARE_VAL_TYPE(EnumerateParamsResult);
@@ -65,7 +66,91 @@ class Instance {
   emscripten::val stderrFn = emscripten::val::null();
   emscripten::val pollFn = emscripten::val::null();
   std::vector<std::unique_ptr<CalloutRegistration>> callouts;
+  emscripten::val displayFns = emscripten::val::null();
+  display_callback displayCallback{};
   void *paramIterator = nullptr;
+
+  template <typename... Args>
+  auto callDisplay(const char *name, Args... args) -> int {
+    emscripten::val fn = displayFns[name];
+    if (fn.isUndefined()) {
+      return 0;
+    }
+    return settled(fn(args...)).template as<int>();
+  }
+
+  static auto devicePointer(void *device) -> double {
+    return static_cast<double>(reinterpret_cast<uintptr_t>(device));
+  }
+
+  static auto onDisplayCallout(void *, void *calloutHandle, const char *deviceName, int id,
+                               int size, void *data) -> int {
+    if (deviceName == nullptr || std::string(deviceName) != "display" ||
+        id != DISPLAY_CALLOUT_GET_CALLBACK ||
+        size < static_cast<int>(sizeof(gs_display_get_callback_t))) {
+      return gs_error_unknownerror;
+    }
+    auto *self = static_cast<Instance *>(calloutHandle);
+    auto *cb = static_cast<gs_display_get_callback_t *>(data);
+    cb->callback = &self->displayCallback;
+    cb->caller_handle = self;
+    return 0;
+  }
+
+  static auto displayOpen(void *handle, void *device) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_open", devicePointer(device));
+  }
+
+  static auto displayPreclose(void *handle, void *device) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_preclose",
+                                                        devicePointer(device));
+  }
+
+  static auto displayClose(void *handle, void *device) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_close", devicePointer(device));
+  }
+
+  static auto displayPresize(void *handle, void *device, int width, int height, int raster,
+                             unsigned int format) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_presize", devicePointer(device),
+                                                        width, height, raster, format);
+  }
+
+  static auto displaySize(void *handle, void *device, int width, int height, int raster,
+                          unsigned int format, unsigned char *pimage) -> int {
+    auto view = emscripten::typed_memory_view(
+        pimage == nullptr ? 0 : static_cast<size_t>(raster) * static_cast<size_t>(height),
+        pimage);
+    return static_cast<Instance *>(handle)->callDisplay("display_size", devicePointer(device),
+                                                        width, height, raster, format, view);
+  }
+
+  static auto displaySync(void *handle, void *device) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_sync", devicePointer(device));
+  }
+
+  static auto displayPage(void *handle, void *device, int copies, int flush) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_page", devicePointer(device),
+                                                        copies, flush);
+  }
+
+  static auto displayUpdate(void *handle, void *device, int x, int y, int w, int h) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_update", devicePointer(device),
+                                                        x, y, w, h);
+  }
+
+  static auto displaySeparation(void *handle, void *device, int component,
+                                const char *componentName, unsigned short c, unsigned short m,
+                                unsigned short y, unsigned short k) -> int {
+    return static_cast<Instance *>(handle)->callDisplay(
+        "display_separation", devicePointer(device), component,
+        std::string(componentName == nullptr ? "" : componentName), c, m, y, k);
+  }
+
+  static auto displayAdjustBandHeight(void *handle, void *device, int bandheight) -> int {
+    return static_cast<Instance *>(handle)->callDisplay("display_adjust_band_height",
+                                                        devicePointer(device), bandheight);
+  }
 
   static auto onCallout(void *, void *calloutHandle, const char *deviceName, int id, int size,
                         void *data) -> int {
@@ -159,6 +244,52 @@ public:
     int ret = gsapi_set_poll(instance, pollFn.isNull() ? nullptr : &onPoll);
     if (ret != 0) {
       throwReturned("gsapi_set_poll", ret);
+    }
+    return ret;
+  }
+
+  auto setDisplayCallback(DisplayCallback callback) -> int {
+    bool wasSet = !displayFns.isNull();
+    displayFns = callback;
+    if (callback.isNull()) {
+      if (wasSet) {
+        gsapi_deregister_callout(instance, &onDisplayCallout, this);
+      }
+      int ret = gsapi_set_display_callback(instance, nullptr);
+      if (ret != 0) {
+        throwReturned("gsapi_set_display_callback", ret);
+      }
+      return ret;
+    }
+    displayCallback = display_callback{};
+    displayCallback.size = sizeof(display_callback);
+    displayCallback.version_major = DISPLAY_VERSION_MAJOR;
+    displayCallback.version_minor = DISPLAY_VERSION_MINOR;
+    displayCallback.display_open = &displayOpen;
+    displayCallback.display_preclose = &displayPreclose;
+    displayCallback.display_close = &displayClose;
+    displayCallback.display_presize = &displayPresize;
+    displayCallback.display_size = &displaySize;
+    displayCallback.display_sync = &displaySync;
+    displayCallback.display_page = &displayPage;
+    if (!callback["display_update"].isUndefined()) {
+      displayCallback.display_update = &displayUpdate;
+    }
+    if (!callback["display_separation"].isUndefined()) {
+      displayCallback.display_separation = &displaySeparation;
+    }
+    if (!callback["display_adjust_band_height"].isUndefined()) {
+      displayCallback.display_adjust_band_height = &displayAdjustBandHeight;
+    }
+    if (!wasSet) {
+      int ret = gsapi_register_callout(instance, &onDisplayCallout, this);
+      if (ret != 0) {
+        throwReturned("gsapi_register_callout", ret);
+      }
+    }
+    int ret = gsapi_set_display_callback(instance, &displayCallback);
+    if (ret != 0) {
+      throwReturned("gsapi_set_display_callback", ret);
     }
     return ret;
   }
@@ -402,6 +533,25 @@ EMSCRIPTEN_BINDINGS(gs) {
   emscripten::register_type<CalloutCallback>(
       "(deviceName: string, id: number, size: number, data: Uint8Array) => number | "
       "Promise<number>");
+  emscripten::register_type<DisplayCallback>(
+      "{ "
+      "display_open?: (device: number) => number | Promise<number>; "
+      "display_preclose?: (device: number) => number | Promise<number>; "
+      "display_close?: (device: number) => number | Promise<number>; "
+      "display_presize?: (device: number, width: number, height: number, raster: number, "
+      "format: number) => number | Promise<number>; "
+      "display_size?: (device: number, width: number, height: number, raster: number, "
+      "format: number, pimage: Uint8Array) => number | Promise<number>; "
+      "display_sync?: (device: number) => number | Promise<number>; "
+      "display_page?: (device: number, copies: number, flush: number) => number | "
+      "Promise<number>; "
+      "display_update?: (device: number, x: number, y: number, w: number, h: number) => "
+      "number | Promise<number>; "
+      "display_separation?: (device: number, component: number, componentName: string, "
+      "c: number, m: number, y: number, k: number) => number | Promise<number>; "
+      "display_adjust_band_height?: (device: number, bandheight: number) => number | "
+      "Promise<number> "
+      "} | null");
   emscripten::register_type<ParamValue>("boolean | number | bigint | string | null");
   emscripten::register_type<GetParamResult>(
       "{ code: number; value: boolean | number | bigint | string | null }");
@@ -441,6 +591,49 @@ EMSCRIPTEN_BINDINGS(gs) {
   emscripten::constant("DISPLAY_CALLOUT_GET_CALLBACK_LEGACY",
                        static_cast<int>(DISPLAY_CALLOUT_GET_CALLBACK_LEGACY));
 
+  emscripten::constant("DISPLAY_VERSION_MAJOR", static_cast<int>(DISPLAY_VERSION_MAJOR));
+  emscripten::constant("DISPLAY_VERSION_MINOR", static_cast<int>(DISPLAY_VERSION_MINOR));
+  emscripten::constant("DISPLAY_COLORS_NATIVE", static_cast<int>(DISPLAY_COLORS_NATIVE));
+  emscripten::constant("DISPLAY_COLORS_GRAY", static_cast<int>(DISPLAY_COLORS_GRAY));
+  emscripten::constant("DISPLAY_COLORS_RGB", static_cast<int>(DISPLAY_COLORS_RGB));
+  emscripten::constant("DISPLAY_COLORS_CMYK", static_cast<int>(DISPLAY_COLORS_CMYK));
+  emscripten::constant("DISPLAY_COLORS_SEPARATION",
+                       static_cast<int>(DISPLAY_COLORS_SEPARATION));
+  emscripten::constant("DISPLAY_COLORS_MASK", static_cast<int>(DISPLAY_COLORS_MASK));
+  emscripten::constant("DISPLAY_ALPHA_NONE", static_cast<int>(DISPLAY_ALPHA_NONE));
+  emscripten::constant("DISPLAY_ALPHA_FIRST", static_cast<int>(DISPLAY_ALPHA_FIRST));
+  emscripten::constant("DISPLAY_ALPHA_LAST", static_cast<int>(DISPLAY_ALPHA_LAST));
+  emscripten::constant("DISPLAY_UNUSED_FIRST", static_cast<int>(DISPLAY_UNUSED_FIRST));
+  emscripten::constant("DISPLAY_UNUSED_LAST", static_cast<int>(DISPLAY_UNUSED_LAST));
+  emscripten::constant("DISPLAY_ALPHA_MASK", static_cast<int>(DISPLAY_ALPHA_MASK));
+  emscripten::constant("DISPLAY_DEPTH_1", static_cast<int>(DISPLAY_DEPTH_1));
+  emscripten::constant("DISPLAY_DEPTH_2", static_cast<int>(DISPLAY_DEPTH_2));
+  emscripten::constant("DISPLAY_DEPTH_4", static_cast<int>(DISPLAY_DEPTH_4));
+  emscripten::constant("DISPLAY_DEPTH_8", static_cast<int>(DISPLAY_DEPTH_8));
+  emscripten::constant("DISPLAY_DEPTH_12", static_cast<int>(DISPLAY_DEPTH_12));
+  emscripten::constant("DISPLAY_DEPTH_16", static_cast<int>(DISPLAY_DEPTH_16));
+  emscripten::constant("DISPLAY_DEPTH_MASK", static_cast<int>(DISPLAY_DEPTH_MASK));
+  emscripten::constant("DISPLAY_BIGENDIAN", static_cast<int>(DISPLAY_BIGENDIAN));
+  emscripten::constant("DISPLAY_LITTLEENDIAN", static_cast<int>(DISPLAY_LITTLEENDIAN));
+  emscripten::constant("DISPLAY_ENDIAN_MASK", static_cast<int>(DISPLAY_ENDIAN_MASK));
+  emscripten::constant("DISPLAY_TOPFIRST", static_cast<int>(DISPLAY_TOPFIRST));
+  emscripten::constant("DISPLAY_BOTTOMFIRST", static_cast<int>(DISPLAY_BOTTOMFIRST));
+  emscripten::constant("DISPLAY_FIRSTROW_MASK", static_cast<int>(DISPLAY_FIRSTROW_MASK));
+  emscripten::constant("DISPLAY_NATIVE_555", static_cast<int>(DISPLAY_NATIVE_555));
+  emscripten::constant("DISPLAY_NATIVE_565", static_cast<int>(DISPLAY_NATIVE_565));
+  emscripten::constant("DISPLAY_555_MASK", static_cast<int>(DISPLAY_555_MASK));
+  emscripten::constant("DISPLAY_ROW_ALIGN_DEFAULT", static_cast<int>(DISPLAY_ROW_ALIGN_DEFAULT));
+  emscripten::constant("DISPLAY_ROW_ALIGN_4", static_cast<int>(DISPLAY_ROW_ALIGN_4));
+  emscripten::constant("DISPLAY_ROW_ALIGN_8", static_cast<int>(DISPLAY_ROW_ALIGN_8));
+  emscripten::constant("DISPLAY_ROW_ALIGN_16", static_cast<int>(DISPLAY_ROW_ALIGN_16));
+  emscripten::constant("DISPLAY_ROW_ALIGN_32", static_cast<int>(DISPLAY_ROW_ALIGN_32));
+  emscripten::constant("DISPLAY_ROW_ALIGN_64", static_cast<int>(DISPLAY_ROW_ALIGN_64));
+  emscripten::constant("DISPLAY_ROW_ALIGN_MASK", static_cast<int>(DISPLAY_ROW_ALIGN_MASK));
+  emscripten::constant("DISPLAY_CHUNKY", static_cast<int>(DISPLAY_CHUNKY));
+  emscripten::constant("DISPLAY_PLANAR", static_cast<int>(DISPLAY_PLANAR));
+  emscripten::constant("DISPLAY_PLANAR_INTERLEAVED",
+                       static_cast<int>(DISPLAY_PLANAR_INTERLEAVED));
+
   emscripten::value_object<gsapi_revision_t>("Revision")
       .field("product", &gsapi::Revision::getProduct, &gsapi::Revision::setProduct)
       .field("copyright", &gsapi::Revision::getCopyright, &gsapi::Revision::setCopyright)
@@ -457,6 +650,7 @@ EMSCRIPTEN_BINDINGS(gs) {
       .constructor(&gsapi::Instance::create, emscripten::allow_raw_pointers())
       .function("setStdio", &gsapi::Instance::setStdio)
       .function("setPoll", &gsapi::Instance::setPoll)
+      .function("setDisplayCallback", &gsapi::Instance::setDisplayCallback)
       .function("registerCallout", &gsapi::Instance::registerCallout)
       .function("deregisterCallout", &gsapi::Instance::deregisterCallout)
       .function("setDefaultDeviceList", &gsapi::Instance::setDefaultDeviceList)

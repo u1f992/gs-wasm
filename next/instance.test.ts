@@ -285,6 +285,85 @@ await test("setPoll", async () => {
   }
 });
 
+await test("setDisplayCallback", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  const events: string[] = [];
+  let image: Uint8Array | null = null;
+  let snapshot: Uint8Array | null = null;
+  let size: [number, number, number] | null = null;
+  const format =
+    gs.DISPLAY_COLORS_RGB | gs.DISPLAY_ALPHA_NONE | gs.DISPLAY_DEPTH_8 | gs.DISPLAY_BIGENDIAN;
+  try {
+    assert.strictEqual(
+      instance.setDisplayCallback({
+        display_open: () => {
+          events.push("open");
+          return 0;
+        },
+        display_preclose: () => {
+          events.push("preclose");
+          return 0;
+        },
+        display_close: () => {
+          events.push("close");
+          return 0;
+        },
+        display_presize: () => {
+          events.push("presize");
+          return 0;
+        },
+        display_size: (_device, width, height, raster, actualFormat, pimage) => {
+          events.push("size");
+          assert.strictEqual(actualFormat, format);
+          size = [width, height, raster];
+          image = pimage;
+          return 0;
+        },
+        display_sync: () => {
+          events.push("sync");
+          return 0;
+        },
+        display_page: async () => {
+          events.push("page");
+          snapshot = image!.slice();
+          return 0;
+        },
+      }),
+      0,
+    );
+    assert.strictEqual(
+      await instance.initWithArgs([
+        "gs",
+        "-dQUIET",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-sDEVICE=display",
+        `-dDisplayFormat=${format}`,
+        "-g4x2",
+        "-r72",
+        "-c",
+        "0 0 1 setrgbcolor 0 0 2 2 rectfill showpage",
+      ]),
+      0,
+    );
+    assert.strictEqual(await instance.exit(), 0);
+    assert.strictEqual(instance.setDisplayCallback(null), 0);
+  } finally {
+    instance.delete();
+  }
+  assert.deepStrictEqual(events.slice(0, 3), ["open", "presize", "size"]);
+  assert.ok(events.includes("page"), events.join(" "));
+  assert.deepStrictEqual(events.slice(-2), ["preclose", "close"]);
+  const [width, height, raster] = size!;
+  assert.deepStrictEqual([width, height], [4, 2]);
+  assert.ok(raster >= 12);
+  const pixel = (x: number, y: number) =>
+    Array.from(snapshot!.subarray(y * raster + x * 3, y * raster + x * 3 + 3));
+  assert.deepStrictEqual(pixel(0, 1), [0, 0, 255]);
+  assert.deepStrictEqual(pixel(3, 0), [255, 255, 255]);
+});
+
 await test("registerCallout and deregisterCallout", async () => {
   const gs = await createModule();
   const instance = new gs.Instance();
