@@ -26,7 +26,7 @@ cd ..
 
 em++ -g --profiling-funcs \
   -std=c++17 \
-  -Inext/src -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
+  -Inext/wasm -Ighostpdl/psi -Ighostpdl/base -Ighostpdl/devices -Ighostpdl/obj \
   -lembind \
   -s STACK_SIZE=8388608 \
   -s ALLOW_MEMORY_GROWTH=1 \
@@ -38,7 +38,7 @@ em++ -g --profiling-funcs \
   -s EXPORTED_RUNTIME_METHODS=FS,HEAPU8 \
   --emit-tsd gs.d.ts \
   -o next/gs.js \
-  next/src/*.cpp ghostpdl/bin/gs.a
+  next/wasm/*.cpp ghostpdl/bin/gs.a
 
 cd ghostpdl
 git reset --hard
