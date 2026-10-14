@@ -271,6 +271,120 @@ await test("runStringWithLength accepts bytes", async () => {
   assert.strictEqual(new TextDecoder().decode(new Uint8Array(stdout)), "b");
 });
 
+await test("setPoll", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  try {
+    assert.strictEqual(
+      instance.setPoll(() => 0),
+      0,
+    );
+    assert.strictEqual(instance.setPoll(null), 0);
+  } finally {
+    instance.delete();
+  }
+});
+
+await test("setDefaultDeviceList and getDefaultDeviceList", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  try {
+    assert.strictEqual(typeof instance.getDefaultDeviceList(), "string");
+    assert.strictEqual(instance.setDefaultDeviceList("nullpage bbox"), 0);
+    assert.strictEqual(instance.getDefaultDeviceList(), "nullpage bbox");
+  } finally {
+    instance.delete();
+  }
+});
+
+await test("setArgEncoding", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  try {
+    assert.strictEqual(instance.setArgEncoding(gs.GS_ARG_ENCODING_UTF8), 0);
+  } finally {
+    instance.delete();
+  }
+});
+
+await test("setParam and getParam", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  try {
+    assert.strictEqual(
+      await instance.initWithArgs(["gs", "-dQUIET", "-dNOPAUSE", "-sDEVICE=png16m"]),
+      0,
+    );
+    assert.deepStrictEqual(instance.getParam("TextAlphaBits", gs.gs_spt_int), {
+      code: 4,
+      value: 1,
+    });
+    assert.strictEqual(await instance.setParam("TextAlphaBits", 4, gs.gs_spt_int), 0);
+    assert.deepStrictEqual(instance.getParam("TextAlphaBits", gs.gs_spt_int), {
+      code: 4,
+      value: 4,
+    });
+    assert.strictEqual(await instance.setParam("HWResolution", "[150 150]", gs.gs_spt_parsed), 0);
+    assert.deepStrictEqual(instance.getParam("HWResolution", gs.gs_spt_parsed), {
+      code: 10,
+      value: "[150 150]",
+    });
+    assert.strictEqual(await instance.setParam("OutputFile", "/out.png", gs.gs_spt_string), 0);
+    assert.deepStrictEqual(instance.getParam("OutputFile", gs.gs_spt_string), {
+      code: 9,
+      value: "/out.png",
+    });
+    assert.deepStrictEqual(instance.getParam("Name", gs.gs_spt_name), {
+      code: 7,
+      value: "png16m",
+    });
+    assert.deepStrictEqual(instance.getParam("NoSuchParameter", gs.gs_spt_int), {
+      code: gs.gs_error_undefined,
+      value: null,
+    });
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+});
+
+await test("enumerateParams", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  try {
+    assert.strictEqual(await instance.initWithArgs(interpreterArgs), 0);
+    const keys: string[] = [];
+    for (;;) {
+      const { code, key, type } = instance.enumerateParams();
+      if (code !== 0) {
+        assert.strictEqual(code, 1);
+        break;
+      }
+      assert.notStrictEqual(type, gs.gs_spt_invalid);
+      keys.push(key);
+    }
+    assert.ok(keys.includes("HWResolution"), keys.join(" "));
+    assert.strictEqual(await instance.exit(), 0);
+  } finally {
+    instance.delete();
+  }
+});
+
+await test("control paths", async () => {
+  const gs = await createModule();
+  const instance = new gs.Instance();
+  try {
+    assert.strictEqual(instance.isPathControlActive(), false);
+    assert.strictEqual(instance.addControlPath(gs.GS_PERMIT_FILE_READING, "/allowed/"), 0);
+    assert.strictEqual(instance.removeControlPath(gs.GS_PERMIT_FILE_READING, "/allowed/"), 0);
+    instance.purgeControlPaths(gs.GS_PERMIT_FILE_READING);
+    instance.activatePathControl(true);
+    assert.strictEqual(instance.isPathControlActive(), true);
+  } finally {
+    instance.delete();
+  }
+});
+
 await test("runFile", async () => {
   const gs = await createModule();
   const instance = new gs.Instance();
