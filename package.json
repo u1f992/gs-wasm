@@ -12,7 +12,12 @@
     "type": "git",
     "url": "git+https://github.com/u1f992/gs-wasm.git"
   },
-  "main": "dist/gs.js",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./host-fs": "./dist/host-fs.js",
+    "./gs.wasm": "./dist/gs.wasm"
+  },
   "bin": {
     "gs-wasm": "dist/cli.js"
   },
